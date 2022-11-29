@@ -23,7 +23,7 @@
     "npm": ">=7.0.0"
   },
   "workspaces": [
-    "client/*",
+    "client",
     "server",
     "shared"
   ]

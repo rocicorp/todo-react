@@ -27,7 +27,7 @@ $ npm install; npm run build;
 ## 2.Start frontend and backend watcher
 
 ```bash
-$ npm run watch --ws react
+$ npm run watch --ws
 ```
 
 Provides an example integrating replicache with react in a simple todo application.
@@ -44,3 +44,7 @@ Open the `render.yaml` file and add your license key
 ```
 
 Commit the changes and follow the direction on [Deploying to Render](https://doc.replicache.dev/deploy-render)
+/client
+/shared 
+/server 
+package.json
