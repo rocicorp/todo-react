@@ -24,7 +24,7 @@ $ export VITE_REPLICACHE_LICENSE_KEY="<your license key>"
 $ npm install; npm run build;
 ```
 
-## 2.Start frontend and backend watcher
+## 2. Start frontend and backend watcher
 
 ```bash
 $ npm run watch --ws
