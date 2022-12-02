@@ -1,6 +1,6 @@
 ![Replicache logo](https://uploads-ssl.webflow.com/623a2f46e064937599256c2d/6269e72c61073c3d561a5015_Lockup%20v2.svg)
 
-# replicache-todo-react
+# todo-react
 
 This repository contains sample code for [Replicache](https://replicache.dev/). The example uses the react framework with a common express server backend. The backend utilizes the [replicache-express](https://github.com/rocicorp/replicache-express) library which implements the `push`, `pull`, `poke`, `createSpace`, and `spaceExists` handlers required for Replicache sync protocol. This library intends to help developers easily experiment with Replicache and are experienced using the react and express frameworks.
 
