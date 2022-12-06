@@ -1,6 +1,6 @@
 {
   "name": "todo-react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "devDependencies": {
     "@rocicorp/eslint-config": "^0.1.2",
     "@rocicorp/prettier-config": "^0.1.1",
