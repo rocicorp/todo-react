@@ -26,5 +26,8 @@
     "client",
     "server",
     "shared"
-  ]
+  ],
+  "dependencies": {
+    "replicache-express": "file:../replicache-express/replicache-express-0.2.1.tgz"
+  }
 }
