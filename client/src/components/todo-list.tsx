@@ -1,4 +1,4 @@
-import {Todo, TodoUpdate} from 'replicache-quickstarts-shared';
+import {Todo, TodoUpdate} from 'shared';
 import {TodoItem} from './todo-item';
 
 const TodoList = ({
