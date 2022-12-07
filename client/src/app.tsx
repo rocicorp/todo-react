@@ -2,7 +2,7 @@ import {nanoid} from 'nanoid';
 import React from 'react';
 import {Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
-import {M, listTodos, TodoUpdate} from 'replicache-quickstarts-shared';
+import {M, listTodos, TodoUpdate} from 'shared';
 
 import Header from './components/header';
 import MainSection from './components/main-section';
