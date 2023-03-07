@@ -25,6 +25,7 @@
   "workspaces": [
     "client",
     "server",
-    "shared"
+    "shared",
+    "replicache-express"
   ]
 }
