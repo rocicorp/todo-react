@@ -1,5 +1,5 @@
 {
-  "name": "todo-react",
+  "name": "todo-row-versioning",
   "version": "0.1.0",
   "devDependencies": {
     "@rocicorp/eslint-config": "^0.1.2",
