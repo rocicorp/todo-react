@@ -1,6 +1,8 @@
+import { nanoid } from "nanoid";
 import type { JSONValue, PatchOperation } from "replicache";
 import { z } from "zod";
 import type { Executor } from "./pg.js";
+import type { Todo } from "shared";
 
 export async function getEntry(
   executor: Executor,
@@ -177,6 +179,17 @@ export async function createSpace(
     `insert into replicache_space (id, lastmodified) values ($1, now())`,
     [spaceID]
   );
+
+  console.log("populating sample data...");
+  for (let i = 0; i < 1000; i++) {
+    const todo: Todo = {
+      id: nanoid(),
+      text: `Sample todo ${i}`,
+      completed: i > 10,
+      sort: i,
+    };
+    await putEntry(executor, spaceID, nanoid(), todo);
+  }
 }
 
 export async function hasSpace(
