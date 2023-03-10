@@ -24,6 +24,14 @@ The basic concept is that pull is implemented via diff:
 
 Because of this diff approach, the sytem is very robust. The extent can change for any reason at any time, and the sync will keep working.
 
+For more information on the design, see [the design doc](https://replicache.notion.site/The-Row-Version-Strategy-5c5560b0ba3c437fae6eb34318b54712).
+
+## Starting Points in the Code
+
+- [schema.ts](https://github.com/rocicorp/todo-row-versioning/blob/main/server/src/schema.ts): Note that `deleted` column no longer needed.
+- [push.ts](https://github.com/rocicorp/todo-row-versioning/blob/main/server/src/push.ts): Note that we now increment every row's version independently. 
+- [pull.ts](https://github.com/rocicorp/todo-row-versioning/blob/main/server/src/pull.ts): The majority of the smarts is now in pull. It creates and manages the cache of Client View Records, and diffs them to create the patch for the client.
+
 ## Other Notes
 
 - In this demo, the _Client View Records_ -- the caches of responses previously sent to clients -- are stored in server process memory. This works fine for a single-node server like this demo, but for a distributed server (or serverless) you'll need to store these in something like Redis. It's OK if they time out, the worst that will happen is the client will do a full sync.
