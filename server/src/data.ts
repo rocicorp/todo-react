@@ -305,7 +305,7 @@ export async function createSpace(
         completed: i > 10,
         sort: i,
       };
-      await putEntry(executor, spaceID, `todo/${nanoid()}`, todo);
+      await putEntry(executor, spaceID, `todo/${todo.id}`, todo);
     }
   }
 }

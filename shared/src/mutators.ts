@@ -36,7 +36,7 @@ export const mutators = {
     // In a real app you may want to validate the incoming data is in fact a
     // TodoUpdate. Check out https://www.npmjs.com/package/@rocicorp/rails for
     // some heper functions to do this.
-    const prev = (await tx.get(update.id)) as Todo;
+    const prev = (await tx.get(`todo/${update.id}`)) as Todo;
     const next = {...prev, ...update};
     await tx.put(`todo/${next.id}`, next);
   },
@@ -66,7 +66,6 @@ export const mutators = {
     tx: WriteTransaction,
     {userID, extent}: {userID: string; extent: Partial<Extent>},
   ) => {
-    console.log('updateExtent mutator', extent);
     const prev = await getExtent(tx, userID);
     await tx.put(`extent/${userID}`, {...prev, ...extent});
   },

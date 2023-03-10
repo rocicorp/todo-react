@@ -42,9 +42,8 @@ export async function pull(
       const {value: extent} = ((await getEntry(
         executor,
         spaceID,
-        'extent',
+        `extent/${userID}`,
       )) ?? {value: {}}) as {value: Extent};
-      console.log('got extent', extent);
 
       return Promise.all([
         getPatch(
