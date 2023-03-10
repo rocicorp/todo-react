@@ -1,12 +1,12 @@
-import type Express from "express";
-import { createSpace as createSpaceImpl, hasSpace } from "../backend/data.js";
-import { handleRequest as handleRequestImpl } from "../endpoints/handle-request.js";
-import { transact } from "../backend/pg.js";
-import type { MutatorDefs } from "replicache";
+import type Express from 'express';
+import {createSpace as createSpaceImpl, hasSpace} from './data.js';
+import {handleRequest as handleRequestImpl} from '../endpoints/handle-request.js';
+import {transact} from './pg.js';
+import type {MutatorDefs} from 'replicache';
 
 export async function spaceExists(spaceID: string) {
   try {
-    return await transact(async (executor) => {
+    return await transact(async executor => {
       return await hasSpace(executor, spaceID);
     });
   } catch (e) {
@@ -16,7 +16,7 @@ export async function spaceExists(spaceID: string) {
 
 export async function createSpace(spaceID: string) {
   try {
-    await transact(async (executor) => {
+    await transact(async executor => {
       await createSpaceImpl(executor, spaceID, true);
     });
   } catch (e) {
@@ -28,7 +28,7 @@ export async function handleRequest<M extends MutatorDefs>(
   req: Express.Request,
   res: Express.Response,
   next: Express.NextFunction,
-  mutators: M
+  mutators: M,
 ) {
   await handleRequestImpl(req, res, next, mutators);
 }

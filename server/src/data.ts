@@ -1,17 +1,17 @@
-import { nanoid } from "nanoid";
-import type { JSONValue, PatchOperation } from "replicache";
-import { z } from "zod";
-import type { Executor } from "./pg.js";
-import type { Todo } from "shared";
+import {nanoid} from 'nanoid';
+import type {JSONValue, PatchOperation} from 'replicache';
+import {z} from 'zod';
+import type {Executor} from './pg.js';
+import type {Todo} from 'shared';
 
 export async function getEntry(
   executor: Executor,
   spaceid: string,
-  key: string
-): Promise<{ value: JSONValue; version: number } | undefined> {
-  const { rows } = await executor(
-    "select value, version from replicache_entry where spaceid = $1 and key = $2",
-    [spaceid, key]
+  key: string,
+): Promise<{value: JSONValue; version: number} | undefined> {
+  const {rows} = await executor(
+    'select value, version from replicache_entry where spaceid = $1 and key = $2',
+    [spaceid, key],
   );
   const value = rows[0]?.value;
   if (value === undefined) {
@@ -19,14 +19,14 @@ export async function getEntry(
   }
 
   const version = rows[0].version as number;
-  return { value, version };
+  return {value, version};
 }
 
 export async function putEntry(
   executor: Executor,
   spaceID: string,
   key: string,
-  value: JSONValue
+  value: JSONValue,
 ): Promise<void> {
   await executor(
     `
@@ -36,18 +36,18 @@ export async function putEntry(
         value = $3, version = e.version + 1, lastmodified = now()
     `,
     // TODO: Not sure why we need to JSON.stringify() here, but do not need to JSON.parse() on read??
-    [spaceID, key, JSON.stringify(value)]
+    [spaceID, key, JSON.stringify(value)],
   );
 }
 
 export async function delEntry(
   executor: Executor,
   spaceID: string,
-  key: string
+  key: string,
 ): Promise<void> {
   await executor(
     `delete from replicache_entry where spaceid = $1 and key = $2`,
-    [spaceID, key]
+    [spaceID, key],
   );
 }
 
@@ -68,16 +68,16 @@ export type SearchResult = {
 
 export async function searchEntries(
   executor: Executor,
-  opts: SearchOptions
+  opts: SearchOptions,
 ): Promise<SearchResult[]> {
-  const { returnValue, spaceID, fromKey, whereComplete, inKeys } = opts;
+  const {returnValue, spaceID, fromKey, whereComplete, inKeys} = opts;
 
-  const columns = ["spaceid", "key", "version"];
+  const columns = ['spaceid', 'key', 'version'];
   if (returnValue) {
-    columns.push("value");
+    columns.push('value');
   }
 
-  const filters = ["true"];
+  const filters = ['true'];
   const params: unknown[] = [];
 
   if (spaceID !== undefined) {
@@ -98,17 +98,17 @@ export async function searchEntries(
   if (whereComplete !== undefined) {
     params.push(whereComplete);
     filters.push(
-      `(key not like 'todo/%' or value->'completed' = $${params.length})`
+      `(key not like 'todo/%' or value->'completed' = $${params.length})`,
     );
   }
 
-  const sql = `select ${columns.join(", ")}
+  const sql = `select ${columns.join(', ')}
     from replicache_entry
-    where ${filters.join(" and ")}
+    where ${filters.join(' and ')}
     order by spaceid, key asc`;
 
-  const { rows } = await executor(sql, params);
-  return rows.map((row) => ({
+  const {rows} = await executor(sql, params);
+  return rows.map(row => ({
     spaceID: row.spaceid,
     key: row.key,
     value: returnValue ? row.value : undefined,
@@ -134,10 +134,10 @@ export function makeCVR(results: SearchResult[], newID: () => string) {
 
 export async function getPatch(
   executor: Executor,
-  searchOptions: Omit<SearchOptions, "returnValue">,
+  searchOptions: Omit<SearchOptions, 'returnValue'>,
   prevCVR: ClientViewRecord | undefined,
-  newID: () => string
-): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
+  newID: () => string,
+): Promise<{patch: PatchOperation[]; cvr: ClientViewRecord}> {
   if (prevCVR === undefined) {
     return getResetPatch(executor, searchOptions, newID);
   }
@@ -173,7 +173,7 @@ export async function getPatch(
   const patch: PatchOperation[] = [];
   for (const row of putRows) {
     patch.push({
-      op: "put",
+      op: 'put',
       key: row.key,
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       value: row.value!,
@@ -181,19 +181,19 @@ export async function getPatch(
   }
   for (const key of delKeys) {
     patch.push({
-      op: "del",
+      op: 'del',
       key,
     });
   }
 
-  return { patch, cvr: nextCVR };
+  return {patch, cvr: nextCVR};
 }
 
 async function getResetPatch(
   executor: Executor,
   searchOptions: SearchOptions,
-  newID: () => string
-): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
+  newID: () => string,
+): Promise<{patch: PatchOperation[]; cvr: ClientViewRecord}> {
   const rows = await searchEntries(executor, {
     ...searchOptions,
     returnValue: true,
@@ -202,13 +202,13 @@ async function getResetPatch(
   const cvr = makeCVR(rows, newID);
   const patch: PatchOperation[] = [
     {
-      op: "clear",
+      op: 'clear',
     },
   ];
 
   for (const row of rows) {
     patch.push({
-      op: "put",
+      op: 'put',
       key: row.key,
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       value: row.value!,
@@ -224,16 +224,16 @@ async function getResetPatch(
 export async function createSpace(
   executor: Executor,
   spaceID: string,
-  populateSampleData = false
+  populateSampleData = false,
 ): Promise<void> {
-  console.log("creating space", spaceID);
+  console.log('creating space', spaceID);
   await executor(
     `insert into replicache_space (id, lastmodified) values ($1, now())`,
-    [spaceID]
+    [spaceID],
   );
 
   if (populateSampleData) {
-    console.log("populating sample data...");
+    console.log('populating sample data...');
     for (let i = 0; i < 1000; i++) {
       const todo: Todo = {
         id: nanoid(),
@@ -248,23 +248,23 @@ export async function createSpace(
 
 export async function hasSpace(
   executor: Executor,
-  spaceID: string
+  spaceID: string,
 ): Promise<boolean> {
-  console.log("checking space existence", spaceID);
+  console.log('checking space existence', spaceID);
   const res = await executor(
     `select 1 from replicache_space where id = $1 limit 1`,
-    [spaceID]
+    [spaceID],
   );
   return res.rowCount === 1;
 }
 
 export async function getLastMutationID(
   executor: Executor,
-  clientID: string
+  clientID: string,
 ): Promise<number | undefined> {
-  const { rows } = await executor(
+  const {rows} = await executor(
     `select lastmutationid from replicache_client where id = $1`,
-    [clientID]
+    [clientID],
   );
   const value = rows[0]?.lastmutationid;
   if (value === undefined) {
@@ -276,7 +276,7 @@ export async function getLastMutationID(
 export async function setLastMutationID(
   executor: Executor,
   clientID: string,
-  lastMutationID: number
+  lastMutationID: number,
 ): Promise<void> {
   await executor(
     `
@@ -284,6 +284,6 @@ export async function setLastMutationID(
     values ($1, $2, now())
       on conflict (id) do update set lastmutationid = $2, lastmodified = now()
     `,
-    [clientID, lastMutationID]
+    [clientID, lastMutationID],
   );
 }
