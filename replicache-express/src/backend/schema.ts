@@ -35,7 +35,7 @@ export async function createSchemaVersion1(executor: Executor) {
   await executor(`create table replicache_entry (
         spaceid text not null,
         key text not null,
-        value text not null,
+        value jsonb not null,
         version integer not null,
         lastmodified timestamp(6) not null
         )`);

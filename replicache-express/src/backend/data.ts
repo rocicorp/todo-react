@@ -19,7 +19,7 @@ export async function getEntry(
   }
 
   const version = rows[0].version as number;
-  return { value: JSON.parse(value), version };
+  return { value, version };
 }
 
 export async function putEntry(
@@ -35,6 +35,7 @@ export async function putEntry(
       on conflict (spaceid, key) do update set
         value = $3, version = e.version + 1, lastmodified = now()
     `,
+    // TODO: Not sure why we need to JSON.stringify() here, but do not need to JSON.parse() on read??
     [spaceID, key, JSON.stringify(value)]
   );
 }
@@ -50,18 +51,67 @@ export async function delEntry(
   );
 }
 
-export async function* getEntries(
+export type SearchOptions = {
+  returnValue?: boolean | undefined;
+  spaceID?: string | undefined;
+  fromKey?: string | undefined;
+  whereComplete?: boolean | undefined;
+  inKeys?: string[] | undefined;
+};
+
+export type SearchResult = {
+  spaceID: string;
+  key: string;
+  value: JSONValue | undefined;
+  version: number;
+};
+
+export async function searchEntries(
   executor: Executor,
-  spaceID: string,
-  fromKey: string
-): AsyncIterable<readonly [string, JSONValue]> {
-  const { rows } = await executor(
-    `select key, value from replicache_entry where spaceid = $1 and key >= $2 order by key`,
-    [spaceID, fromKey]
-  );
-  for (const row of rows) {
-    yield [row.key as string, JSON.parse(row.value) as JSONValue] as const;
+  opts: SearchOptions
+): Promise<SearchResult[]> {
+  const { returnValue, spaceID, fromKey, whereComplete, inKeys } = opts;
+
+  const columns = ["spaceid", "key", "version"];
+  if (returnValue) {
+    columns.push("value");
   }
+
+  const filters = ["true"];
+  const params: unknown[] = [];
+
+  if (spaceID !== undefined) {
+    params.push(spaceID);
+    filters.push(`spaceid = $${params.length}`);
+  }
+
+  if (fromKey !== undefined) {
+    params.push(fromKey);
+    filters.push(`key >= $${params.length}`);
+  }
+
+  if (inKeys !== undefined) {
+    params.push(inKeys);
+    filters.push(`key = any($${params.length})`);
+  }
+
+  if (whereComplete !== undefined) {
+    params.push(whereComplete);
+    filters.push(`value->'completed' = $${params.length}`);
+  }
+
+  const sql = `select ${columns.join(", ")}
+    from replicache_entry
+    where ${filters.join(" and ")}
+    order by spaceid, key asc`;
+
+  const { rows } = await executor(sql, params);
+  return rows.map((row) => ({
+    spaceID: row.spaceid,
+    key: row.key,
+    value: returnValue ? row.value : undefined,
+    version: row.version,
+  }));
 }
 
 export type ClientViewRecord = {
@@ -69,63 +119,65 @@ export type ClientViewRecord = {
   keys: Record<string, number>;
 };
 
+export function makeCVR(results: SearchResult[], newID: () => string) {
+  const cvr: ClientViewRecord = {
+    id: newID(),
+    keys: {},
+  };
+  for (const r of results) {
+    cvr.keys[r.key] = r.version;
+  }
+  return cvr;
+}
+
 export async function getPatch(
   executor: Executor,
-  spaceID: string,
+  searchOptions: Omit<SearchOptions, "returnValue">,
   prevCVR: ClientViewRecord | undefined,
   newID: () => string
 ): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
   if (prevCVR === undefined) {
-    return getResetPatch(executor, spaceID, newID);
+    return getResetPatch(executor, searchOptions, newID);
   }
 
-  const { rows: nextCVRRows } = await executor(
-    `select key, version from replicache_entry where spaceid = $1`,
-    [spaceID]
-  );
+  const entries = await searchEntries(executor, searchOptions);
+  const nextCVR = makeCVR(entries, newID);
 
-  const nextCVR: ClientViewRecord = {
-    id: newID(),
-    keys: {},
-  };
-
-  for (const row of nextCVRRows) {
-    nextCVR.keys[row.key] = row.version;
-  }
-
-  const putIDs = [];
+  const putKeys = [];
   for (const [key, version] of Object.entries(nextCVR.keys)) {
     const prevVersion = prevCVR.keys[key];
     if (prevVersion === undefined || prevVersion < version) {
-      putIDs.push(key);
+      putKeys.push(key);
     }
   }
 
-  const delIDs = [];
+  const delKeys = [];
   for (const key of Object.keys(prevCVR.keys)) {
     if (nextCVR.keys[key] === undefined) {
-      delIDs.push(key);
+      delKeys.push(key);
     }
   }
 
-  if (putIDs.length + delIDs.length >= 1000) {
-    return getResetPatch(executor, spaceID, newID);
+  if (putKeys.length + delKeys.length >= 1000) {
+    return getResetPatch(executor, searchOptions, newID);
   }
 
-  const { rows: putRows } = await executor(
-    `select key, value from replicache_entry where spaceid = $1 and key = any($2)`,
-    [spaceID, putIDs]
-  );
+  const putRows = await searchEntries(executor, {
+    spaceID: searchOptions.spaceID,
+    returnValue: true,
+    inKeys: putKeys,
+  });
 
   const patch: PatchOperation[] = [];
   for (const row of putRows) {
     patch.push({
       op: "put",
       key: row.key,
-      value: JSON.parse(row.value),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      value: row.value!,
     });
   }
-  for (const key of delIDs) {
+  for (const key of delKeys) {
     patch.push({
       op: "del",
       key,
@@ -137,19 +189,15 @@ export async function getPatch(
 
 async function getResetPatch(
   executor: Executor,
-  spaceID: string,
+  searchOptions: SearchOptions,
   newID: () => string
 ): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
-  const { rows } = await executor(
-    `select key, value, version from replicache_entry where spaceid = $1`,
-    [spaceID]
-  );
+  const rows = await searchEntries(executor, {
+    ...searchOptions,
+    returnValue: true,
+  });
 
-  const cvr: ClientViewRecord = {
-    id: newID(),
-    keys: {},
-  };
-
+  const cvr = makeCVR(rows, newID);
   const patch: PatchOperation[] = [
     {
       op: "clear",
@@ -160,10 +208,11 @@ async function getResetPatch(
     patch.push({
       op: "put",
       key: row.key,
-      value: JSON.parse(row.value),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      value: row.value!,
     });
-    cvr.keys[row.key] = row.version;
   }
+
   return {
     patch,
     cvr,
@@ -172,7 +221,8 @@ async function getResetPatch(
 
 export async function createSpace(
   executor: Executor,
-  spaceID: string
+  spaceID: string,
+  populateSampleData = false
 ): Promise<void> {
   console.log("creating space", spaceID);
   await executor(
@@ -180,15 +230,17 @@ export async function createSpace(
     [spaceID]
   );
 
-  console.log("populating sample data...");
-  for (let i = 0; i < 1000; i++) {
-    const todo: Todo = {
-      id: nanoid(),
-      text: `Sample todo ${i}`,
-      completed: i > 10,
-      sort: i,
-    };
-    await putEntry(executor, spaceID, nanoid(), todo);
+  if (populateSampleData) {
+    console.log("populating sample data...");
+    for (let i = 0; i < 1000; i++) {
+      const todo: Todo = {
+        id: nanoid(),
+        text: `Sample todo ${i}`,
+        completed: i > 10,
+        sort: i,
+      };
+      await putEntry(executor, spaceID, nanoid(), todo);
+    }
   }
 }
 

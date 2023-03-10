@@ -5,11 +5,13 @@ import {
   ClientViewRecord,
   createSpace,
   delEntry,
-  getEntries,
+  searchEntries,
   getEntry,
   getPatch,
   hasSpace,
   putEntry,
+  SearchOptions,
+  SearchResult,
 } from "./data.js";
 import { withExecutor } from "./pg.js";
 
@@ -17,23 +19,15 @@ test("getEntry", async () => {
   type Case = {
     name: string;
     exists: boolean;
-    validJSON: boolean;
   };
   const cases: Case[] = [
     {
       name: "does not exist",
       exists: false,
-      validJSON: false,
     },
     {
       name: "exists",
       exists: true,
-      validJSON: true,
-    },
-    {
-      name: "exists, invalid JSON",
-      exists: true,
-      validJSON: false,
     },
   ];
 
@@ -43,7 +37,7 @@ test("getEntry", async () => {
       if (c.exists) {
         await executor(
           `insert into replicache_entry (spaceid, key, value, version, lastmodified) values ('s1', 'foo', $1, 0, now())`,
-          [c.validJSON ? JSON.stringify(42) : "not json"]
+          [JSON.stringify(42)]
         );
       }
 
@@ -63,10 +57,6 @@ test("getEntry", async () => {
         expect(result, c.name).undefined;
         expect(version, c.name).undefined;
         expect(error, c.name).undefined;
-      } else if (!c.validJSON) {
-        expect(result, c.name).undefined;
-        expect(version, c.name).undefined;
-        expect(error, c.name).contains("SyntaxError");
       } else {
         expect(result, c.name).eq(42);
         expect(version, c.name).eq(0);
@@ -107,60 +97,151 @@ test("getEntry RoundTrip types", async () => {
   });
 });
 
-test("getEntries", async () => {
+test("searchEntries", async () => {
+  const testData: {
+    spaceID: string;
+    key: string;
+    value: { text: string; completed: boolean };
+  }[] = [
+    {
+      spaceID: "s1",
+      key: "bar",
+      value: { text: "bar", completed: false },
+    },
+    {
+      spaceID: "s1",
+      key: "baz",
+      value: { text: "baz", completed: true },
+    },
+    {
+      spaceID: "s1",
+      key: "foo",
+      value: { text: "foo", completed: true },
+    },
+    {
+      spaceID: "s2",
+      key: "bar",
+      value: { text: "bar", completed: false },
+    },
+    {
+      spaceID: "s2",
+      key: "baz",
+      value: { text: "baz", completed: true },
+    },
+    {
+      spaceID: "s2",
+      key: "foo",
+      value: { text: "foo", completed: true },
+    },
+  ];
+
+  const resultsWithValue = testData.map((d) => ({ ...d, version: 0 }));
+  const results = resultsWithValue.map((r) => ({ ...r, value: undefined }));
+
   await withExecutor(async (executor) => {
     await executor(`delete from replicache_entry`);
-    await putEntry(executor, "s1", "foo", "foo");
-    await putEntry(executor, "s1", "bar", "bar");
-    await putEntry(executor, "s1", "baz", "baz");
+    for (const d of testData) {
+      await putEntry(executor, d.spaceID, d.key, d.value);
+    }
 
     type Case = {
       name: string;
-      fromKey: string;
-      expect: string[];
+      options: SearchOptions;
+      expect: Partial<SearchResult>[];
     };
     const cases: Case[] = [
       {
-        name: "fromEmpty",
-        fromKey: "",
-        expect: ["bar", "baz", "foo"],
+        name: "null",
+        options: {},
+        expect: results,
       },
       {
-        name: "fromB",
-        fromKey: "b",
-        expect: ["bar", "baz", "foo"],
+        name: "spaceID",
+        options: { spaceID: "s1" },
+        expect: results.filter((r) => r.spaceID === "s1"),
       },
       {
         name: "fromBar",
-        fromKey: "bar",
-        expect: ["bar", "baz", "foo"],
+        options: {
+          fromKey: "bar",
+        },
+        expect: results.filter((r) => r.key >= "bar"),
       },
       {
         name: "fromBas",
-        fromKey: "bas",
-        expect: ["baz", "foo"],
+        options: {
+          fromKey: "baz",
+        },
+        expect: results.filter((r) => r.key >= "baz"),
       },
       {
         name: "fromF",
-        fromKey: "f",
-        expect: ["foo"],
+        options: {
+          fromKey: "f",
+        },
+        expect: results.filter((r) => r.key >= "f"),
       },
       {
         name: "fromFooa",
-        fromKey: "fooa",
+        options: {
+          fromKey: "fooa",
+        },
+        expect: results.filter((r) => r.key >= "fooa"),
+      },
+      {
+        name: "inKeysEmpty",
+        options: {
+          inKeys: [],
+        },
         expect: [],
+      },
+      {
+        name: "inKeys",
+        options: {
+          inKeys: ["foo", "bar", "unused"],
+        },
+        expect: results.filter((r) => ["foo", "bar"].includes(r.key)),
+      },
+      {
+        name: "whereComplete",
+        options: {
+          whereComplete: true,
+          returnValue: true,
+        },
+        expect: resultsWithValue.filter((r) => r.value.completed),
+      },
+      {
+        name: "whereCompleteFalse",
+        options: {
+          whereComplete: false,
+          returnValue: true,
+        },
+        expect: resultsWithValue.filter((r) => !r.value.completed),
+      },
+      {
+        name: "returnValue",
+        options: {
+          returnValue: true,
+        },
+        expect: resultsWithValue,
+      },
+      {
+        name: "all",
+        options: {
+          spaceID: "s2",
+          fromKey: "b",
+          inKeys: ["baz"],
+          returnValue: true,
+        },
+        expect: resultsWithValue.filter(
+          (v) => v.spaceID === "s2" && v.key === "baz"
+        ),
       },
     ];
 
     for (const c of cases) {
-      const entries: (readonly [string, JSONValue])[] = [];
-      for await (const entry of getEntries(executor, "s1", c.fromKey)) {
-        entries.push(entry);
-      }
-      expect(entries).deep.equal(
-        c.expect.map((k) => [k, k]),
-        c.name
-      );
+      const entries = await searchEntries(executor, c.options);
+      expect(entries, c.name).deep.equal(c.expect);
     }
   });
 });
@@ -205,7 +286,7 @@ test("putEntry", async () => {
       const { spaceid, key, value, version } = row;
       expect(spaceid, c.name).eq("s1");
       expect(key, c.name).eq("foo");
-      expect(value, c.name).eq("42");
+      expect(value, c.name).eq(42);
       expect(version, c.name).eq(c.duplicate ? 1 : 0);
     }
   });
@@ -625,7 +706,12 @@ test("getPatch", async () => {
         );
       }
 
-      const res = await getPatch(executor, c.spaceID, c.prevCVR, () => "id1");
+      const res = await getPatch(
+        executor,
+        { spaceID: c.spaceID },
+        c.prevCVR,
+        () => "id1"
+      );
       res.patch.sort((a, b) => {
         if (a.op === "clear") {
           return -1;
@@ -635,7 +721,7 @@ test("getPatch", async () => {
         }
         return a.key.localeCompare(b.key);
       });
-      expect(res).deep.equal(c.expectedResult);
+      expect(res, c.name).deep.equal(c.expectedResult);
     }
   });
 });

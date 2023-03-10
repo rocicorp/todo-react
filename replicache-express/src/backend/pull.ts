@@ -31,7 +31,7 @@ export async function pull(
   const [{ patch, cvr: nextCVR }, lastMutationID] = await transact(
     async (executor) => {
       return Promise.all([
-        getPatch(executor, spaceID, prevCVR, nanoid),
+        getPatch(executor, { spaceID, whereComplete: false }, prevCVR, nanoid),
         getLastMutationID(executor, pull.clientID),
       ]);
     }

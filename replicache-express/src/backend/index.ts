@@ -17,7 +17,7 @@ export async function spaceExists(spaceID: string) {
 export async function createSpace(spaceID: string) {
   try {
     await transact(async (executor) => {
-      await createSpaceImpl(executor, spaceID);
+      await createSpaceImpl(executor, spaceID, true);
     });
   } catch (e) {
     throw new Error(`Failed to create space ${spaceID}`);
