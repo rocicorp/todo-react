@@ -1,7 +1,7 @@
-import type { JSONValue } from "replicache";
-import type { Storage } from "replicache-transaction";
-import { putEntry, getEntry, searchEntries, delEntry } from "./data.js";
-import type { Executor } from "./pg.js";
+import type {JSONValue} from 'replicache';
+import type {Storage} from 'replicache-transaction';
+import {putEntry, getEntry, delEntry, listEntries} from './data.js';
+import type {Executor} from './pg.js';
 
 // Implements the Storage interface required by replicache-transaction in terms
 // of our Postgres database.
@@ -29,13 +29,14 @@ export class PostgresStorage implements Storage {
   }
 
   async *getEntries(
-    fromKey: string
+    fromKey: string,
   ): AsyncIterable<readonly [string, JSONValue]> {
-    for await (const row of await searchEntries(this._executor, {
-      returnValue: true,
-      spaceID: this._spaceID,
+    for (const row of await listEntries(
+      this._executor,
+      this._spaceID,
       fromKey,
-    })) {
+      undefined,
+    )) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       yield [row.key, row.value!];
     }

@@ -6,12 +6,12 @@ import type {Todo} from 'shared';
 
 export async function getEntry(
   executor: Executor,
-  spaceid: string,
+  spaceID: string,
   key: string,
-): Promise<{value: JSONValue; version: number} | undefined> {
+): Promise<Entry | undefined> {
   const {rows} = await executor(
     'select value, version from replicache_entry where spaceid = $1 and key = $2',
-    [spaceid, key],
+    [spaceID, key],
   );
   const value = rows[0]?.value;
   if (value === undefined) {
@@ -19,7 +19,7 @@ export async function getEntry(
   }
 
   const version = rows[0].version as number;
-  return {value, version};
+  return {spaceID, key, value, version};
 }
 
 export async function putEntry(
@@ -51,7 +51,39 @@ export async function delEntry(
   );
 }
 
-export type SearchOptions = {
+export async function listEntries(
+  executor: Executor,
+  spaceID: string,
+  fromKey: string,
+  inKeys: string[] | undefined,
+): Promise<Entry[]> {
+  const params: unknown[] = [spaceID];
+  const filters = [`spaceid = $${params.length}`];
+
+  params.push(fromKey);
+  filters.push(`key >= $${params.length}`);
+
+  if (inKeys !== undefined) {
+    params.push(inKeys);
+    filters.push(`key = any($${params.length})`);
+  }
+
+  const {rows} = await executor(
+    `select key, value, version from replicache_entry where ${filters.join(
+      ' and ',
+    )}`,
+    params,
+  );
+
+  return rows.map(row => ({
+    spaceID,
+    key: row.key,
+    value: row.value,
+    version: row.version,
+  }));
+}
+
+export type SearchTodosOptions = {
   returnValue?: boolean | undefined;
   spaceID?: string | undefined;
   fromKey?: string | undefined;
@@ -59,31 +91,30 @@ export type SearchOptions = {
   inKeys?: string[] | undefined;
 };
 
-export type SearchResult = {
-  spaceID: string;
+export type Entry = {
   key: string;
+  spaceID: string;
   value: JSONValue | undefined;
   version: number;
 };
 
-export async function searchEntries(
+export async function searchTodos(
   executor: Executor,
-  opts: SearchOptions,
-): Promise<SearchResult[]> {
-  const {returnValue, spaceID, fromKey, whereComplete, inKeys} = opts;
+  spaceID: string,
+  opts: SearchTodosOptions,
+): Promise<Entry[]> {
+  const {returnValue, fromKey, whereComplete, inKeys} = opts;
 
-  const columns = ['spaceid', 'key', 'version'];
+  const columns = ['key', 'version'];
   if (returnValue) {
     columns.push('value');
   }
 
-  const filters = ['true'];
   const params: unknown[] = [];
+  const filters = [`key like 'todo/%'`];
 
-  if (spaceID !== undefined) {
-    params.push(spaceID);
-    filters.push(`spaceid = $${params.length}`);
-  }
+  params.push(spaceID);
+  filters.push(`spaceid = $${params.length}`);
 
   if (fromKey !== undefined) {
     params.push(fromKey);
@@ -97,9 +128,7 @@ export async function searchEntries(
 
   if (whereComplete !== undefined) {
     params.push(whereComplete);
-    filters.push(
-      `(key not like 'todo/%' or value->'completed' = $${params.length})`,
-    );
+    filters.push(`value->'completed' = $${params.length}`);
   }
 
   const sql = `select ${columns.join(', ')}
@@ -109,7 +138,7 @@ export async function searchEntries(
 
   const {rows} = await executor(sql, params);
   return rows.map(row => ({
-    spaceID: row.spaceid,
+    spaceID,
     key: row.key,
     value: returnValue ? row.value : undefined,
     version: row.version,
@@ -121,28 +150,59 @@ export type ClientViewRecord = {
   keys: Record<string, number>;
 };
 
-export function makeCVR(results: SearchResult[], newID: () => string) {
+export function makeCVR(entries: Entry[], newID: () => string) {
   const cvr: ClientViewRecord = {
     id: newID(),
     keys: {},
   };
-  for (const r of results) {
-    cvr.keys[r.key] = r.version;
+  for (const e of entries) {
+    cvr.keys[e.key] = e.version;
   }
   return cvr;
 }
 
+export async function getClientView(
+  executor: Executor,
+  spaceID: string,
+  userID: string,
+  searchTodoOptions: SearchTodosOptions,
+): Promise<Entry[]> {
+  const [todos, extent] = await Promise.all([
+    searchTodos(executor, spaceID, searchTodoOptions),
+    getEntry(executor, spaceID, `extent/${userID}`),
+  ] as const);
+
+  if (!extent) {
+    return todos;
+  }
+
+  return [...todos, extent];
+}
+
 export async function getPatch(
   executor: Executor,
-  searchOptions: Omit<SearchOptions, 'returnValue'>,
+  spaceID: string,
+  userID: string,
+  searchTodoOptions: Omit<SearchTodosOptions, 'returnValue'>,
   prevCVR: ClientViewRecord | undefined,
   newID: () => string,
 ): Promise<{patch: PatchOperation[]; cvr: ClientViewRecord}> {
   if (prevCVR === undefined) {
-    return getResetPatch(executor, searchOptions, newID);
+    return await getResetPatch(
+      executor,
+      spaceID,
+      userID,
+      searchTodoOptions,
+      newID,
+    );
   }
 
-  const entries = await searchEntries(executor, searchOptions);
+  const entries = await getClientView(
+    executor,
+    spaceID,
+    userID,
+    searchTodoOptions,
+  );
   const nextCVR = makeCVR(entries, newID);
 
   const putKeys = [];
@@ -161,28 +221,30 @@ export async function getPatch(
   }
 
   if (putKeys.length + delKeys.length >= 1000) {
-    return getResetPatch(executor, searchOptions, newID);
+    return await getResetPatch(
+      executor,
+      spaceID,
+      userID,
+      searchTodoOptions,
+      newID,
+    );
   }
 
-  const putRows = await searchEntries(executor, {
-    spaceID: searchOptions.spaceID,
-    returnValue: true,
-    inKeys: putKeys,
-  });
+  const fullEntries = await listEntries(executor, spaceID, '', putKeys);
 
   const patch: PatchOperation[] = [];
-  for (const row of putRows) {
-    patch.push({
-      op: 'put',
-      key: row.key,
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      value: row.value!,
-    });
-  }
   for (const key of delKeys) {
     patch.push({
       op: 'del',
       key,
+    });
+  }
+  for (const entry of fullEntries) {
+    patch.push({
+      op: 'put',
+      key: entry.key,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      value: entry.value!,
     });
   }
 
@@ -191,27 +253,29 @@ export async function getPatch(
 
 async function getResetPatch(
   executor: Executor,
-  searchOptions: SearchOptions,
+  spaceID: string,
+  userID: string,
+  searchTodoOptions: Omit<SearchTodosOptions, 'returnValue'>,
   newID: () => string,
 ): Promise<{patch: PatchOperation[]; cvr: ClientViewRecord}> {
-  const rows = await searchEntries(executor, {
-    ...searchOptions,
+  const entries = await getClientView(executor, spaceID, userID, {
+    ...searchTodoOptions,
     returnValue: true,
   });
 
-  const cvr = makeCVR(rows, newID);
+  const cvr = makeCVR(entries, newID);
   const patch: PatchOperation[] = [
     {
       op: 'clear',
     },
   ];
 
-  for (const row of rows) {
+  for (const entry of entries) {
     patch.push({
       op: 'put',
-      key: row.key,
+      key: entry.key,
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      value: row.value!,
+      value: entry.value!,
     });
   }
 

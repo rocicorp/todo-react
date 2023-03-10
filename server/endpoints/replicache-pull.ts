@@ -10,9 +10,9 @@ export async function handlePull(
     res.status(400).json({error: 'spaceID is required'});
     return;
   }
-  const {spaceID} = req.query;
+  const {spaceID, userID} = req.query;
   try {
-    const resp = await pull(spaceID as string, req.body);
+    const resp = await pull(spaceID as string, userID as string, req.body);
     res.json(resp);
   } catch (e: any) {
     next(Error(e));

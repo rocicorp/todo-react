@@ -1,15 +1,15 @@
-import { transact } from "./pg.js";
+import {transact} from './pg.js';
 import {
   getPatch,
   getLastMutationID,
   ClientViewRecord,
   getEntry,
-} from "./data.js";
-import { z } from "zod";
-import type { PullResponse } from "replicache";
-import type Express from "express";
-import { nanoid } from "nanoid";
-import type { Extent } from "shared";
+} from './data.js';
+import {z} from 'zod';
+import type {PullResponse} from 'replicache';
+import type Express from 'express';
+import {nanoid} from 'nanoid';
+import type {Extent} from 'shared';
 
 const pullRequest = z.object({
   clientID: z.string(),
@@ -20,49 +20,51 @@ const cvrCache = new Map<string, ClientViewRecord>();
 
 export async function pull(
   spaceID: string,
-  requestBody: Express.Request
+  userID: string,
+  requestBody: Express.Request,
 ): Promise<PullResponse> {
-  console.log(`Processing pull`, JSON.stringify(requestBody, null, ""));
+  console.log(`Processing pull`, JSON.stringify(requestBody, null, ''));
 
   const pull = pullRequest.parse(requestBody);
   const requestCookie = pull.cookie;
 
-  console.log("spaceID", spaceID);
-  console.log("clientID", pull.clientID);
+  console.log('spaceID', spaceID);
+  console.log('clientID', pull.clientID);
 
   const t0 = Date.now();
 
   const prevCVR = requestCookie ? cvrCache.get(requestCookie) : undefined;
 
-  const [{ patch, cvr: nextCVR }, lastMutationID] = await transact(
-    async (executor) => {
+  const [{patch, cvr: nextCVR}, lastMutationID] = await transact(
+    async executor => {
       // TODO: It would be nice to implement Replicache's ReadTransaction too,
       // so that we could reuse getEntry() from shared.
-      const { value: extent } = ((await getEntry(
+      const {value: extent} = ((await getEntry(
         executor,
         spaceID,
-        "extent"
-      )) ?? { value: {} }) as { value: Extent };
-      console.log("got extent", extent);
+        'extent',
+      )) ?? {value: {}}) as {value: Extent};
+      console.log('got extent', extent);
 
       return Promise.all([
         getPatch(
           executor,
+          spaceID,
+          userID,
           {
-            spaceID,
             whereComplete: extent?.includeComplete ? undefined : false,
           },
           prevCVR,
-          nanoid
+          nanoid,
         ),
         getLastMutationID(executor, pull.clientID),
       ]);
-    }
+    },
   );
 
-  console.log("lastMutationID: ", lastMutationID);
-  console.log("nextCVR.id: ", nextCVR.id);
-  console.log("Read all objects in", Date.now() - t0);
+  console.log('lastMutationID: ', lastMutationID);
+  console.log('nextCVR.id: ', nextCVR.id);
+  console.log('Read all objects in', Date.now() - t0);
 
   if (prevCVR) {
     cvrCache.delete(prevCVR.id);
@@ -76,6 +78,6 @@ export async function pull(
     patch,
   };
 
-  console.log(`Returning`, JSON.stringify(resp, null, ""));
+  console.log(`Returning`, JSON.stringify(resp, null, ''));
   return resp;
 }

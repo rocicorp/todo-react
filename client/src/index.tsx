@@ -32,11 +32,13 @@ async function init() {
     throw new Error('Missing VITE_REPLICACHE_LICENSE_KEY');
   }
 
+  const userID = localStorage.userID ?? (localStorage.userID = Math.random());
+
   const r = new Replicache({
     licenseKey,
-    pushURL: `/api/replicache/push?spaceID=${listID}`,
-    pullURL: `/api/replicache/pull?spaceID=${listID}`,
-    name: listID,
+    pushURL: `/api/replicache/push?spaceID=${listID}&userID=${userID}`,
+    pullURL: `/api/replicache/pull?spaceID=${listID}&userID=${userID}`,
+    name: `${listID}:${userID}`,
     mutators,
   });
 
@@ -53,7 +55,7 @@ async function init() {
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      <App rep={r} />
+      <App rep={r} userID={userID} />
     </React.StrictMode>,
   );
 }

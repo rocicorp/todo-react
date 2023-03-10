@@ -62,9 +62,12 @@ export const mutators = {
     await tx.put(`todo/${todo.id}`, {...todo, sort: maxSort + 1});
   },
 
-  updateExtent: async (tx: WriteTransaction, extent: Partial<Extent>) => {
+  updateExtent: async (
+    tx: WriteTransaction,
+    {userID, extent}: {userID: string; extent: Partial<Extent>},
+  ) => {
     console.log('updateExtent mutator', extent);
-    const prev = await getExtent(tx);
-    await tx.put('extent', {...prev, ...extent});
+    const prev = await getExtent(tx, userID);
+    await tx.put(`extent/${userID}`, {...prev, ...extent});
   },
 };

@@ -5,13 +5,13 @@ import {
   ClientViewRecord,
   createSpace,
   delEntry,
-  searchEntries,
+  searchTodos,
   getEntry,
   getPatch,
   hasSpace,
   putEntry,
-  SearchOptions,
-  SearchResult,
+  SearchTodosOptions,
+  Entry,
 } from './data.js';
 import {withExecutor} from './pg.js';
 
@@ -75,41 +75,46 @@ test('getEntry RoundTrip types', async () => {
     await putEntry(executor, 's1', 'object', {a: 1, b: 2});
 
     expect(await getEntry(executor, 's1', 'boolean')).deep.equal({
+      key: 'boolean',
+      spaceID: 's1',
       value: true,
       version: 0,
     });
     expect(await getEntry(executor, 's1', 'number')).deep.equal({
+      key: 'number',
+      spaceID: 's1',
       value: 42,
       version: 0,
     });
     expect(await getEntry(executor, 's1', 'string')).deep.equal({
+      key: 'string',
+      spaceID: 's1',
       value: 'foo',
       version: 0,
     });
     expect(await getEntry(executor, 's1', 'array')).deep.equal({
+      key: 'array',
+      spaceID: 's1',
       value: [1, 2, 3],
       version: 0,
     });
     expect(await getEntry(executor, 's1', 'object')).deep.equal({
+      key: 'object',
+      spaceID: 's1',
       value: {a: 1, b: 2},
       version: 0,
     });
   });
 });
 
-test('searchEntries', async () => {
+test('searchTodos', async () => {
   const testData: {
     spaceID: string;
     key: string;
-    value: any;
+    value: {text: string; completed: boolean};
   }[] = [
     {
       spaceID: 's1',
-      key: 'extent',
-      value: {},
-    },
-    {
-      spaceID: 's1',
       key: 'todo/bar',
       value: {text: 'bar', completed: false},
     },
@@ -127,16 +132,6 @@ test('searchEntries', async () => {
       spaceID: 's2',
       key: 'todo/bar',
       value: {text: 'bar', completed: false},
-    },
-    {
-      spaceID: 's2',
-      key: 'todo/baz',
-      value: {text: 'baz', completed: true},
-    },
-    {
-      spaceID: 's2',
-      key: 'todo/foo',
-      value: {text: 'foo', completed: true},
     },
   ];
 
@@ -151,18 +146,13 @@ test('searchEntries', async () => {
 
     type Case = {
       name: string;
-      options: SearchOptions;
-      expect: Partial<SearchResult>[];
+      options: SearchTodosOptions;
+      expect: Partial<Entry>[];
     };
     const cases: Case[] = [
       {
         name: 'null',
         options: {},
-        expect: results,
-      },
-      {
-        name: 'spaceID',
-        options: {spaceID: 's1'},
         expect: results.filter(r => r.spaceID === 's1'),
       },
       {
@@ -170,28 +160,28 @@ test('searchEntries', async () => {
         options: {
           fromKey: 'todo/bar',
         },
-        expect: results.filter(r => r.key >= 'todo/bar'),
+        expect: results.filter(r => r.spaceID === 's1' && r.key >= 'todo/bar'),
       },
       {
         name: 'fromBas',
         options: {
           fromKey: 'todo/baz',
         },
-        expect: results.filter(r => r.key >= 'todo/baz'),
+        expect: results.filter(r => r.spaceID === 's1' && r.key >= 'todo/baz'),
       },
       {
         name: 'fromF',
         options: {
           fromKey: 'todo/f',
         },
-        expect: results.filter(r => r.key >= 'todo/f'),
+        expect: results.filter(r => r.spaceID === 's1' && r.key >= 'todo/f'),
       },
       {
         name: 'fromFooa',
         options: {
           fromKey: 'todo/fooa',
         },
-        expect: results.filter(r => r.key >= 'todo/fooa'),
+        expect: results.filter(r => r.spaceID === 's1' && r.key >= 'todo/fooa'),
       },
       {
         name: 'inKeysEmpty',
@@ -205,7 +195,9 @@ test('searchEntries', async () => {
         options: {
           inKeys: ['todo/foo', 'todo/bar', 'todo/unused'],
         },
-        expect: results.filter(r => ['todo/foo', 'todo/bar'].includes(r.key)),
+        expect: results.filter(
+          r => r.spaceID === 's1' && ['todo/foo', 'todo/bar'].includes(r.key),
+        ),
       },
       {
         name: 'whereComplete',
@@ -214,7 +206,7 @@ test('searchEntries', async () => {
           returnValue: true,
         },
         expect: resultsWithValue.filter(
-          r => r.key === 'extent' || r.value.completed,
+          r => r.spaceID === 's1' && r.value.completed,
         ),
       },
       {
@@ -223,31 +215,32 @@ test('searchEntries', async () => {
           whereComplete: false,
           returnValue: true,
         },
-        expect: resultsWithValue.filter(r => !r.value.completed),
+        expect: resultsWithValue.filter(
+          r => r.spaceID === 's1' && !r.value.completed,
+        ),
       },
       {
         name: 'returnValue',
         options: {
           returnValue: true,
         },
-        expect: resultsWithValue,
+        expect: resultsWithValue.filter(r => r.spaceID === 's1'),
       },
       {
         name: 'all',
         options: {
-          spaceID: 's2',
           fromKey: 'b',
           inKeys: ['baz'],
           returnValue: true,
         },
         expect: resultsWithValue.filter(
-          v => v.spaceID === 's2' && v.key === 'baz',
+          v => v.spaceID === 's1' && v.key === 'baz',
         ),
       },
     ];
 
     for (const c of cases) {
-      const entries = await searchEntries(executor, c.options);
+      const entries = await searchTodos(executor, 's1', c.options);
       expect(entries, c.name).deep.equal(c.expect);
     }
   });
@@ -307,24 +300,32 @@ test('putEntry increments version', async () => {
 
     await putEntry(executor, 's1', 'foo', 'bar');
     expect(await getEntry(executor, 's1', 'foo')).deep.equal({
+      spaceID: 's1',
+      key: 'foo',
       value: 'bar',
       version: 0,
     });
 
     await putEntry(executor, 's1', 'foo', 'baz');
     expect(await getEntry(executor, 's1', 'foo')).deep.equal({
+      spaceID: 's1',
+      key: 'foo',
       value: 'baz',
       version: 1,
     });
 
     await putEntry(executor, 's1', 'foo', 'hotdog');
     expect(await getEntry(executor, 's1', 'foo')).deep.equal({
+      spaceID: 's1',
+      key: 'foo',
       value: 'hotdog',
       version: 2,
     });
 
     await putEntry(executor, 's1', 'monkey', 'nuts');
     expect(await getEntry(executor, 's1', 'monkey')).deep.equal({
+      spaceID: 's1',
+      key: 'monkey',
       value: 'nuts',
       version: 0,
     });
@@ -436,12 +437,11 @@ test('getPatch', async () => {
   };
 
   const sampleData = [
-    {spaceid: 's1', key: 'foo', value: '"bar"', version: 0},
-    {spaceid: 's1', key: 'hot', value: '"dog"', version: 1},
-    {spaceid: 's1', key: 'mon', value: '"key"', version: 2},
-    {spaceid: 's2', key: 'foo', value: '"bar"', version: 0},
-    {spaceid: 's2', key: 'hot', value: '"dog"', version: 1},
-    {spaceid: 's2', key: 'mon', value: '"key"', version: 2},
+    {spaceid: 's1', key: 'extent/u1', value: '{}', version: 0},
+    {spaceid: 's1', key: 'todo/foo', value: '"bar"', version: 0},
+    {spaceid: 's1', key: 'todo/hot', value: '"dog"', version: 1},
+    {spaceid: 's1', key: 'todo/mon', value: '"key"', version: 2},
+    {spaceid: 's2', key: 'todo/foo', value: '"bar"', version: 0},
   ];
 
   const hugeData: {
@@ -453,7 +453,7 @@ test('getPatch', async () => {
   for (let i = 0; i < 1000; i++) {
     hugeData.push({
       spaceid: 's1',
-      key: `foo${String(i).padStart(4, '0')}`,
+      key: `todo/foo${String(i).padStart(4, '0')}`,
       value: `"bar"`,
       version: i,
     });
@@ -462,9 +462,10 @@ test('getPatch', async () => {
   const expectedCVR = {
     id: 'id1',
     keys: {
-      foo: 0,
-      hot: 1,
-      mon: 2,
+      'extent/u1': 0,
+      'todo/foo': 0,
+      'todo/hot': 1,
+      'todo/mon': 2,
     },
   };
 
@@ -477,9 +478,10 @@ test('getPatch', async () => {
       expectedResult: {
         patch: [
           {op: 'clear'},
-          {op: 'put', key: 'foo', value: 'bar'},
-          {op: 'put', key: 'hot', value: 'dog'},
-          {op: 'put', key: 'mon', value: 'key'},
+          {op: 'put', key: 'extent/u1', value: {}},
+          {op: 'put', key: 'todo/foo', value: 'bar'},
+          {op: 'put', key: 'todo/hot', value: 'dog'},
+          {op: 'put', key: 'todo/mon', value: 'key'},
         ],
         cvr: expectedCVR,
       },
@@ -503,9 +505,10 @@ test('getPatch', async () => {
       prevCVR: {
         id: 'id2',
         keys: {
-          foo: 0,
-          hot: 1,
-          mon: 2,
+          'extent/u1': 0,
+          'todo/foo': 0,
+          'todo/hot': 1,
+          'todo/mon': 2,
         },
       },
       data: sampleData,
@@ -520,7 +523,7 @@ test('getPatch', async () => {
       prevCVR: {
         id: 'id2',
         keys: {
-          foo: 0,
+          'todo/foo': 0,
         },
       },
       data: sampleData,
@@ -528,13 +531,18 @@ test('getPatch', async () => {
         patch: [
           {
             op: 'put',
-            key: 'hot',
+            key: 'extent/u1',
+            value: {},
+          },
+          {
+            op: 'put',
+            key: 'todo/hot',
             value: 'dog',
           },
           {
             op: 'put',
 
-            key: 'mon',
+            key: 'todo/mon',
             value: 'key',
           },
         ],
@@ -547,9 +555,10 @@ test('getPatch', async () => {
       prevCVR: {
         id: 'id2',
         keys: {
-          foo: 0,
-          hot: 0,
-          mon: 0,
+          'extent/u1': 0,
+          'todo/foo': 0,
+          'todo/hot': 0,
+          'todo/mon': 0,
         },
       },
       data: sampleData,
@@ -557,12 +566,12 @@ test('getPatch', async () => {
         patch: [
           {
             op: 'put',
-            key: 'hot',
+            key: 'todo/hot',
             value: 'dog',
           },
           {
             op: 'put',
-            key: 'mon',
+            key: 'todo/mon',
             value: 'key',
           },
         ],
@@ -575,10 +584,11 @@ test('getPatch', async () => {
       prevCVR: {
         id: 'id2',
         keys: {
-          foo: 0,
-          hot: 1,
-          mon: 2,
-          beep: 3,
+          'extent/u1': 0,
+          'todo/foo': 0,
+          'todo/hot': 1,
+          'todo/mon': 2,
+          'todo/beep': 3,
         },
       },
       data: sampleData,
@@ -586,7 +596,7 @@ test('getPatch', async () => {
         patch: [
           {
             op: 'del',
-            key: 'beep',
+            key: 'todo/beep',
           },
         ],
         cvr: expectedCVR,
@@ -598,9 +608,10 @@ test('getPatch', async () => {
       prevCVR: {
         id: 'id2',
         keys: {
-          hot: 1,
-          mon: 1,
-          beep: 3,
+          'extent/u1': 0,
+          'todo/hot': 1,
+          'todo/mon': 1,
+          'todo/beep': 3,
         },
       },
       data: sampleData,
@@ -608,16 +619,16 @@ test('getPatch', async () => {
         patch: [
           {
             op: 'del',
-            key: 'beep',
+            key: 'todo/beep',
           },
           {
             op: 'put',
-            key: 'foo',
+            key: 'todo/foo',
             value: 'bar',
           },
           {
             op: 'put',
-            key: 'mon',
+            key: 'todo/mon',
             value: 'key',
           },
         ],
@@ -629,7 +640,9 @@ test('getPatch', async () => {
       spaceID: 's1',
       prevCVR: {
         id: 'id2',
-        keys: {},
+        keys: {
+          'extent/u1': 0,
+        },
       },
       data: hugeData,
       expectedResult: {
@@ -714,7 +727,9 @@ test('getPatch', async () => {
 
       const res = await getPatch(
         executor,
-        {spaceID: c.spaceID},
+        c.spaceID,
+        'u1',
+        {},
         c.prevCVR,
         () => 'id1',
       );
