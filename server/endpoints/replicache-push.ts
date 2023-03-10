@@ -1,16 +1,16 @@
-import type { MutatorDefs } from "replicache";
-import { push } from "../backend/push.js";
+import type {MutatorDefs} from 'replicache';
+import {push} from '../src/push.js';
 
-import type Express from "express";
+import type Express from 'express';
 
 export async function handlePush<M extends MutatorDefs>(
   req: Express.Request,
   res: Express.Response,
   next: Express.NextFunction,
-  mutators: M
+  mutators: M,
 ): Promise<void> {
   if (req.query.spaceID === undefined) {
-    res.status(400).send("Missing spaceID");
+    res.status(400).send('Missing spaceID');
     return;
   }
   const spaceID = req.query.spaceID.toString() as string;
