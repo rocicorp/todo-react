@@ -3,6 +3,7 @@ import React from 'react';
 import {Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
 import {M, listTodos, TodoUpdate} from 'shared';
+import {getExtent, type Extent} from 'shared/src/extent';
 
 import Header from './components/header';
 import MainSection from './components/main-section';
@@ -12,6 +13,9 @@ const App = ({rep}: {rep: Replicache<M>}) => {
   // Subscribe to all todos and sort them.
   const todos = useSubscribe(rep, listTodos, [], [rep]);
   todos.sort((a, b) => a.sort - b.sort);
+
+  const extent = useSubscribe(rep, getExtent, {}, [rep]);
+
   // Define event handlers and connect them to Replicache mutators. Each
   // of these mutators runs immediately (optimistically) locally, then runs
   // again on the server-side automatically.
@@ -40,11 +44,22 @@ const App = ({rep}: {rep: Replicache<M>}) => {
     }
   };
 
+  const handleUpdateExtent = async (update: Partial<Extent>) => {
+    await rep.mutate.updateExtent({
+      ...extent,
+      ...update,
+    });
+  };
+
   // Render app.
 
   return (
     <div className="todoapp">
-      <Header onNewItem={handleNewItem} />
+      <Header
+        extent={extent}
+        onUpdateExtent={handleUpdateExtent}
+        onNewItem={handleNewItem}
+      />
       <MainSection
         todos={todos}
         onUpdateTodo={handleUpdateTodo}

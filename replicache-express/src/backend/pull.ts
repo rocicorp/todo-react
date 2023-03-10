@@ -1,9 +1,15 @@
 import { transact } from "./pg.js";
-import { getPatch, getLastMutationID, ClientViewRecord } from "./data.js";
+import {
+  getPatch,
+  getLastMutationID,
+  ClientViewRecord,
+  getEntry,
+} from "./data.js";
 import { z } from "zod";
 import type { PullResponse } from "replicache";
 import type Express from "express";
 import { nanoid } from "nanoid";
+import type { Extent } from "shared";
 
 const pullRequest = z.object({
   clientID: z.string(),
@@ -30,8 +36,25 @@ export async function pull(
 
   const [{ patch, cvr: nextCVR }, lastMutationID] = await transact(
     async (executor) => {
+      // TODO: It would be nice to implement Replicache's ReadTransaction too,
+      // so that we could reuse getEntry() from shared.
+      const { value: extent } = ((await getEntry(
+        executor,
+        spaceID,
+        "extent"
+      )) ?? { value: {} }) as { value: Extent };
+      console.log("got extent", extent);
+
       return Promise.all([
-        getPatch(executor, { spaceID, whereComplete: false }, prevCVR, nanoid),
+        getPatch(
+          executor,
+          {
+            spaceID,
+            whereComplete: extent?.includeComplete ? undefined : false,
+          },
+          prevCVR,
+          nanoid
+        ),
         getLastMutationID(executor, pull.clientID),
       ]);
     }

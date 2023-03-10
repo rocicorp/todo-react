@@ -26,6 +26,7 @@
 // required to get up and running.
 
 import type {WriteTransaction} from 'replicache';
+import {Extent, getExtent} from './extent';
 import {Todo, listTodos, TodoUpdate} from './todo';
 
 export type M = typeof mutators;
@@ -37,11 +38,11 @@ export const mutators = {
     // some heper functions to do this.
     const prev = (await tx.get(update.id)) as Todo;
     const next = {...prev, ...update};
-    await tx.put(next.id, next);
+    await tx.put(`todo/${next.id}`, next);
   },
 
   deleteTodo: async (tx: WriteTransaction, id: string) => {
-    await tx.del(id);
+    await tx.del(`todo/${id}`);
   },
 
   // This mutator creates a new todo, assigning the next available sort value.
@@ -58,6 +59,12 @@ export const mutators = {
     todos.sort((t1, t2) => t1.sort - t2.sort);
 
     const maxSort = todos.pop()?.sort ?? 0;
-    await tx.put(todo.id, {...todo, sort: maxSort + 1});
+    await tx.put(`todo/${todo.id}`, {...todo, sort: maxSort + 1});
+  },
+
+  updateExtent: async (tx: WriteTransaction, extent: Partial<Extent>) => {
+    console.log('updateExtent mutator', extent);
+    const prev = await getExtent(tx);
+    await tx.put('extent', {...prev, ...extent});
   },
 };

@@ -97,7 +97,9 @@ export async function searchEntries(
 
   if (whereComplete !== undefined) {
     params.push(whereComplete);
-    filters.push(`value->'completed' = $${params.length}`);
+    filters.push(
+      `(key not like 'todo/%' or value->'completed' = $${params.length})`
+    );
   }
 
   const sql = `select ${columns.join(", ")}
@@ -239,7 +241,7 @@ export async function createSpace(
         completed: i > 10,
         sort: i,
       };
-      await putEntry(executor, spaceID, nanoid(), todo);
+      await putEntry(executor, spaceID, `todo/${nanoid()}`, todo);
     }
   }
 }
