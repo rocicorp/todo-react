@@ -26,9 +26,9 @@ Because of this diff approach, the sytem is very robust. The extent can change f
 
 ## Other Notes
 
-- In this demo, the _Client View Records_ -- the caches of responses previously sent to clients -- are stored in process memory. This works fine for a single-node server like this demo, but for a distributed server (or serverless) you'll need to store these in something like Redis. It's OK if they time out, the worst that will happen is the client will do a full sync.
+- In this demo, the _Client View Records_ -- the caches of responses previously sent to clients -- are stored in server process memory. This works fine for a single-node server like this demo, but for a distributed server (or serverless) you'll need to store these in something like Redis. It's OK if they time out, the worst that will happen is the client will do a full sync.
 - The extent is stored in this demo per-user (across the user's tabs). This is accomplished by storing the extent in a Replicache entry that is also synced. The extent is changed with a mutator, just like any other Replicache data.
-- Starting in [Replicache 12.2.0](https://blog.replicache.dev/blog/replicache-12-1-0) it is possible to disable persistence and run only in memory. If you don't need persistence, the extent management can be easier: in that case you can just communicate the extent in the [`pullURL`](https://doc.replicache.dev/api/interfaces/ReplicacheOptions#pullurl) as a querystring.
+- Starting in [Replicache 12.2.0](https://blog.replicache.dev/blog/replicache-12-1-0) it is possible to disable local persistence and run only in memory. If you don't need local persistence, the extent management can be easier: in that case you can just communicate the extent in the [`pullURL`](https://doc.replicache.dev/api/interfaces/ReplicacheOptions#pullurl) as a querystring.
 
 
 ## 1. Setup
