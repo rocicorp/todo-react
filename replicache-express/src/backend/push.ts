@@ -1,10 +1,5 @@
 import { transact } from "./pg.js";
-import {
-  getCookie,
-  getLastMutationID,
-  setCookie,
-  setLastMutationID,
-} from "./data.js";
+import { getLastMutationID, setLastMutationID } from "./data.js";
 import { ReplicacheTransaction } from "replicache-transaction";
 import { z, ZodType } from "zod";
 import { getPokeBackend } from "./poke.js";
@@ -46,19 +41,12 @@ export async function push<M extends MutatorDefs>(
 
   const t0 = Date.now();
   await transact(async (executor) => {
-    const prevVersion = await getCookie(executor, spaceID);
-    if (prevVersion === undefined) {
-      throw new Error(`Unknown space ${spaceID}`);
-    }
-
-    const nextVersion = prevVersion + 1;
     let lastMutationID =
       (await getLastMutationID(executor, push.clientID)) ?? 0;
 
-    console.log("prevVersion: ", prevVersion);
     console.log("lastMutationID:", lastMutationID);
 
-    const storage = new PostgresStorage(spaceID, nextVersion, executor);
+    const storage = new PostgresStorage(spaceID, executor);
     const tx = new ReplicacheTransaction(storage, push.clientID);
 
     for (let i = 0; i < push.mutations.length; i++) {
@@ -99,7 +87,6 @@ export async function push<M extends MutatorDefs>(
 
     await Promise.all([
       setLastMutationID(executor, push.clientID, lastMutationID),
-      setCookie(executor, spaceID, nextVersion),
       tx.flush(),
     ]);
 

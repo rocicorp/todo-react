@@ -7,17 +7,15 @@ import type { Executor } from "./pg.js";
 // of our Postgres database.
 export class PostgresStorage implements Storage {
   private _spaceID: string;
-  private _version: number;
   private _executor: Executor;
 
-  constructor(spaceID: string, version: number, executor: Executor) {
+  constructor(spaceID: string, executor: Executor) {
     this._spaceID = spaceID;
-    this._version = version;
     this._executor = executor;
   }
 
   putEntry(key: string, value: JSONValue): Promise<void> {
-    return putEntry(this._executor, this._spaceID, key, value, this._version);
+    return putEntry(this._executor, this._spaceID, key, value);
   }
 
   async hasEntry(key: string): Promise<boolean> {
@@ -25,8 +23,9 @@ export class PostgresStorage implements Storage {
     return v !== undefined;
   }
 
-  getEntry(key: string): Promise<JSONValue | undefined> {
-    return getEntry(this._executor, this._spaceID, key);
+  async getEntry(key: string): Promise<JSONValue | undefined> {
+    const entry = await getEntry(this._executor, this._spaceID, key);
+    return entry?.value;
   }
 
   getEntries(fromKey: string): AsyncIterable<readonly [string, JSONValue]> {
@@ -34,6 +33,6 @@ export class PostgresStorage implements Storage {
   }
 
   delEntry(key: string): Promise<void> {
-    return delEntry(this._executor, this._spaceID, key, this._version);
+    return delEntry(this._executor, this._spaceID, key);
   }
 }

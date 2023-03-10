@@ -1,4 +1,4 @@
-import type { JSONValue } from "replicache";
+import type { JSONValue, PatchOperation } from "replicache";
 import { z } from "zod";
 import type { Executor } from "./pg.js";
 
@@ -6,45 +6,45 @@ export async function getEntry(
   executor: Executor,
   spaceid: string,
   key: string
-): Promise<JSONValue | undefined> {
+): Promise<{ value: JSONValue; version: number } | undefined> {
   const { rows } = await executor(
-    "select value from replicache_entry where spaceid = $1 and key = $2 and deleted = false",
+    "select value, version from replicache_entry where spaceid = $1 and key = $2",
     [spaceid, key]
   );
   const value = rows[0]?.value;
   if (value === undefined) {
     return undefined;
   }
-  return JSON.parse(value);
+
+  const version = rows[0].version as number;
+  return { value: JSON.parse(value), version };
 }
 
 export async function putEntry(
   executor: Executor,
   spaceID: string,
   key: string,
-  value: JSONValue,
-  version: number
+  value: JSONValue
 ): Promise<void> {
   await executor(
     `
-    insert into replicache_entry (spaceid, key, value, deleted, version, lastmodified)
-    values ($1, $2, $3, false, $4, now())
+    insert into replicache_entry e (spaceid, key, value, version, lastmodified)
+    values ($1, $2, $3, 0, now())
       on conflict (spaceid, key) do update set
-        value = $3, deleted = false, version = $4, lastmodified = now()
+        value = $3, version = e.version + 1, lastmodified = now()
     `,
-    [spaceID, key, JSON.stringify(value), version]
+    [spaceID, key, JSON.stringify(value)]
   );
 }
 
 export async function delEntry(
   executor: Executor,
   spaceID: string,
-  key: string,
-  version: number
+  key: string
 ): Promise<void> {
   await executor(
-    `update replicache_entry set deleted = true, version = $3 where spaceid = $1 and key = $2`,
-    [spaceID, key, version]
+    `delete from replicache_entry where spaceid = $1 and key = $2`,
+    [spaceID, key]
   );
 }
 
@@ -54,7 +54,7 @@ export async function* getEntries(
   fromKey: string
 ): AsyncIterable<readonly [string, JSONValue]> {
   const { rows } = await executor(
-    `select key, value from replicache_entry where spaceid = $1 and key >= $2 and deleted = false order by key`,
+    `select key, value from replicache_entry where spaceid = $1 and key >= $2 order by key`,
     [spaceID, fromKey]
   );
   for (const row of rows) {
@@ -62,16 +62,110 @@ export async function* getEntries(
   }
 }
 
-export async function getChangedEntries(
+export type ClientViewRecord = {
+  id: string;
+  keys: Record<string, number>;
+};
+
+export async function getPatch(
   executor: Executor,
   spaceID: string,
-  prevVersion: number
-): Promise<[key: string, value: JSONValue, deleted: boolean][]> {
-  const { rows } = await executor(
-    `select key, value, deleted from replicache_entry where spaceid = $1 and version > $2`,
-    [spaceID, prevVersion]
+  prevCVR: ClientViewRecord | undefined,
+  newID: () => string
+): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
+  if (prevCVR === undefined) {
+    return getResetPatch(executor, spaceID, newID);
+  }
+
+  const { rows: nextCVRRows } = await executor(
+    `select key, version from replicache_entry where spaceid = $1`,
+    [spaceID]
   );
-  return rows.map((row) => [row.key, JSON.parse(row.value), row.deleted]);
+
+  const nextCVR: ClientViewRecord = {
+    id: newID(),
+    keys: {},
+  };
+
+  for (const row of nextCVRRows) {
+    nextCVR.keys[row.key] = row.version;
+  }
+
+  const putIDs = [];
+  for (const [key, version] of Object.entries(nextCVR.keys)) {
+    const prevVersion = prevCVR.keys[key];
+    if (prevVersion === undefined || prevVersion < version) {
+      putIDs.push(key);
+    }
+  }
+
+  const delIDs = [];
+  for (const key of Object.keys(prevCVR.keys)) {
+    if (nextCVR.keys[key] === undefined) {
+      delIDs.push(key);
+    }
+  }
+
+  if (putIDs.length + delIDs.length >= 1000) {
+    return getResetPatch(executor, spaceID, newID);
+  }
+
+  const { rows: putRows } = await executor(
+    `select key, value from replicache_entry where spaceid = $1 and key = any($2)`,
+    [spaceID, putIDs]
+  );
+
+  const patch: PatchOperation[] = [];
+  for (const row of putRows) {
+    patch.push({
+      op: "put",
+      key: row.key,
+      value: JSON.parse(row.value),
+    });
+  }
+  for (const key of delIDs) {
+    patch.push({
+      op: "del",
+      key,
+    });
+  }
+
+  return { patch, cvr: nextCVR };
+}
+
+async function getResetPatch(
+  executor: Executor,
+  spaceID: string,
+  newID: () => string
+): Promise<{ patch: PatchOperation[]; cvr: ClientViewRecord }> {
+  const { rows } = await executor(
+    `select key, value, version from replicache_entry where spaceid = $1`,
+    [spaceID]
+  );
+
+  const cvr: ClientViewRecord = {
+    id: newID(),
+    keys: {},
+  };
+
+  const patch: PatchOperation[] = [
+    {
+      op: "clear",
+    },
+  ];
+
+  for (const row of rows) {
+    patch.push({
+      op: "put",
+      key: row.key,
+      value: JSON.parse(row.value),
+    });
+    cvr.keys[row.key] = row.version;
+  }
+  return {
+    patch,
+    cvr,
+  };
 }
 
 export async function createSpace(
@@ -80,34 +174,21 @@ export async function createSpace(
 ): Promise<void> {
   console.log("creating space", spaceID);
   await executor(
-    `insert into replicache_space (id, version, lastmodified) values ($1, 0, now())`,
+    `insert into replicache_space (id, lastmodified) values ($1, now())`,
     [spaceID]
   );
 }
 
-export async function getCookie(
+export async function hasSpace(
   executor: Executor,
   spaceID: string
-): Promise<number | undefined> {
-  const { rows } = await executor(`select version from replicache_space where id = $1`, [
-    spaceID,
-  ]);
-  const value = rows[0]?.version;
-  if (value === undefined) {
-    return undefined;
-  }
-  return z.number().parse(value);
-}
-
-export async function setCookie(
-  executor: Executor,
-  spaceID: string,
-  version: number
-): Promise<void> {
-  await executor(
-    `update replicache_space set version = $2, lastmodified = now() where id = $1`,
-    [spaceID, version]
+): Promise<boolean> {
+  console.log("checking space existence", spaceID);
+  const res = await executor(
+    `select 1 from replicache_space where id = $1 limit 1`,
+    [spaceID]
   );
+  return res.rowCount === 1;
 }
 
 export async function getLastMutationID(

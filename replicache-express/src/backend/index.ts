@@ -1,15 +1,14 @@
 import type Express from "express";
-import { getCookie, createSpace as createSpaceImpl } from "../backend/data.js";
+import { createSpace as createSpaceImpl, hasSpace } from "../backend/data.js";
 import { handleRequest as handleRequestImpl } from "../endpoints/handle-request.js";
 import { transact } from "../backend/pg.js";
 import type { MutatorDefs } from "replicache";
 
 export async function spaceExists(spaceID: string) {
   try {
-    const cookie = await transact(async (executor) => {
-      return await getCookie(executor, spaceID);
+    return await transact(async (executor) => {
+      return await hasSpace(executor, spaceID);
     });
-    return cookie !== undefined;
   } catch (e) {
     throw new Error(`Failed calling spaceExists: ${spaceID}`);
   }
