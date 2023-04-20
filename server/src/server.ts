@@ -21,6 +21,7 @@ const default_dist = path.join(__dirname, '../dist/dist');
 
 const r = new ReplicacheExpressServer(options);
 r.app.use(express.static(default_dist));
+r.app.options('*', cors());
 
 if (process.env.NODE_ENV === 'production') {
   r.app.use(cors());
