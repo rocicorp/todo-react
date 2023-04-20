@@ -19,7 +19,8 @@
   },
   "prettier": "@rocicorp/prettier-config",
   "engines": {
-    "node": ">=16.15.0",
+    "//": "There is a bug we are hitting in node 20. See: https://github.com/nodejs/node/issues/47566",
+    "node": ">=16.15.0 <20.0.0",
     "npm": ">=7.0.0"
   },
   "workspaces": [
