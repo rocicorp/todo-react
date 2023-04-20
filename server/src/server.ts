@@ -5,6 +5,8 @@ import {mutators} from 'shared';
 import {fileURLToPath} from 'url';
 import express from 'express';
 import fs from 'fs';
+import cors from 'cors';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const portEnv = parseInt(process.env.PORT || '');
@@ -17,9 +19,11 @@ const options = {
 
 const default_dist = path.join(__dirname, '../dist/dist');
 
+const r = new ReplicacheExpressServer(options);
+r.app.use(express.static(default_dist));
+
 if (process.env.NODE_ENV === 'production') {
-  const r = new ReplicacheExpressServer(options);
-  r.app.use(express.static(default_dist));
+  r.app.use(cors());
   r.app.get('/health', (_req, res) => {
     res.send('ok');
   });
@@ -34,7 +38,7 @@ if (process.env.NODE_ENV === 'production') {
     );
   });
 } else {
-  ReplicacheExpressServer.start(options, () => {
+  r.start(() => {
     console.log(`Server listening on ${options.host}:${options.port}`);
   });
 }
