@@ -3,7 +3,7 @@ import path from 'path';
 import {ReplicacheExpressServer} from 'replicache-express';
 import {mutators} from 'shared';
 import {fileURLToPath} from 'url';
-import express from 'express';
+import express, {RequestHandler} from 'express';
 import fs from 'fs';
 import cors from 'cors';
 
@@ -21,10 +21,10 @@ const default_dist = path.join(__dirname, '../dist/dist');
 
 const r = new ReplicacheExpressServer(options);
 r.app.use(express.static(default_dist));
-r.app.options('*', cors());
+r.app.use(cors());
+r.app.options('*', cors() as RequestHandler);
 
 if (process.env.NODE_ENV === 'production') {
-  r.app.use(cors());
   r.app.get('/health', (_req, res) => {
     res.send('ok');
   });
