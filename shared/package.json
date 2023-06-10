@@ -2,6 +2,9 @@
   "name": "shared",
   "version": "0.1.0",
   "private": true,
+  "dependencies": {
+    "replicache": "13.0.0-beta.1"
+  },
   "devDependencies": {
     "@rocicorp/eslint-config": "^0.1.2",
     "@rocicorp/prettier-config": "^0.1.1",
