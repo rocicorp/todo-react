@@ -16,4 +16,5 @@ export const {
   init: createList,
   list: listLists,
   get: getList,
+  delete: deleteList,
 } = generate('list', listSchema);

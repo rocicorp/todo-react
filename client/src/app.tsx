@@ -35,6 +35,14 @@ const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
     [rep, listID],
   );
 
+  useEffect(() => {
+    // If the list has been deleted, nav elsewhere.
+    if (listID && !selectedList) {
+      const path = lists.length > 0 ? `/list/${lists[0].id}` : '/';
+      router.navigate(path);
+    }
+  }, [router, listID, lists]);
+
   // Subscribe to all todos and sort them.
   const todos = useSubscribe(rep, listTodos, [], [rep]);
   todos.sort((a, b) => a.sort - b.sort);
@@ -78,6 +86,10 @@ const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
     router.navigate(`/list/${id}`);
   };
 
+  const handleDeleteList = async () => {
+    await rep.mutate.deleteList(listID);
+  };
+
   // Render app.
 
   return (
@@ -105,6 +117,7 @@ const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
           listName={selectedList?.name}
           onNewItem={handleNewItem}
           onNewList={handleNewList}
+          onDeleteList={handleDeleteList}
         />
         {selectedList ? (
           <MainSection

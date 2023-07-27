@@ -28,12 +28,13 @@
 import type {WriteTransaction} from 'replicache';
 import {Extent, getExtent} from './extent';
 import {Todo, listTodos, TodoUpdate} from './todo';
-import {createList} from './list';
+import {createList, deleteList} from './list';
 
 export type M = typeof mutators;
 
 export const mutators = {
   createList,
+  deleteList,
 
   updateTodo: async (tx: WriteTransaction, update: TodoUpdate) => {
     // In a real app you may want to validate the incoming data is in fact a
