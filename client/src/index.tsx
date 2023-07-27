@@ -15,8 +15,8 @@ async function init() {
   const r = new Replicache({
     name: 'anon',
     licenseKey,
-    //pushURL: `/api/replicache/push?spaceID=${listID}`,
-    //pullURL: `/api/replicache/pull?spaceID=${listID}`,
+    pushURL: `/api/replicache/push`,
+    pullURL: `/api/replicache/pull`,
     mutators,
   });
 
