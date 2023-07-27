@@ -1,12 +1,11 @@
 import TodoTextInput from './todo-text-input';
-import type {Extent} from 'shared/src/extent';
 
 const Header = ({
+  listName,
   onNewItem,
   onNewList,
 }: {
-  extent: Extent | undefined;
-  onUpdateExtent: (extent: Partial<Extent>) => void;
+  listName: string | undefined;
   onNewItem: (text: string) => void;
   onNewList: (text: string) => void;
 }) => {
@@ -19,11 +18,11 @@ const Header = ({
 
   return (
     <header className="header">
-      <h1>Groceries</h1>
+      <h1>{listName ?? 'todos'}</h1>
       <div id="toolbar">
         <div id="login">
           <label>User ID:</label>
-          <input type="text" value="dffdfasdfjiwf" />
+          <input type="text" />
         </div>
         <div id="buttons">
           <input
@@ -31,14 +30,16 @@ const Header = ({
             onClick={() => handleNewList()}
             value="New List"
           />
-          <input type="button" value="Delete List" />
+          <input type="button" value="Delete List" disabled={!listName} />
         </div>
       </div>
-      <TodoTextInput
-        initial=""
-        placeholder="What needs to be done?"
-        onSubmit={onNewItem}
-      />
+      {listName && (
+        <TodoTextInput
+          initial=""
+          placeholder="What needs to be done?"
+          onSubmit={onNewItem}
+        />
+      )}
     </header>
   );
 };

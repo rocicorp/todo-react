@@ -61,3 +61,8 @@ body,
   font-size: 110%;
   padding: 0.5ex 1.3ex;
 }
+
+#no-list-selected {
+  padding: 1em 2em;
+  font-size: 120%;
+}

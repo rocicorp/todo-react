@@ -4,26 +4,21 @@ import './index.css';
 import App from './app';
 import {mutators} from 'shared';
 import {Replicache} from 'replicache';
-import {createSpace, spaceExists} from './space';
 
 async function init() {
   const {pathname} = window.location;
 
-  if (pathname === '/' || pathname === '') {
-    window.location.href = '/list/' + (await createSpace());
-    return;
-  }
+  let listID: string | undefined;
 
   // URL layout is "/list/<listid>"
-  const paths = pathname.split('/');
-  const [, listDir, listID] = paths;
-  if (
-    listDir !== 'list' ||
-    listID === undefined ||
-    !(await spaceExists(listID))
-  ) {
-    window.location.href = '/';
-    return;
+  if (pathname !== '/') {
+    const paths = pathname.split('/');
+    let listDir: string;
+    [, listDir, listID] = paths;
+    if (listDir !== 'list' || listID === undefined) {
+      window.location.href = '/';
+      return;
+    }
   }
 
   // See https://doc.replicache.dev/licensing for how to get a license key.
@@ -38,7 +33,7 @@ async function init() {
     licenseKey,
     //pushURL: `/api/replicache/push?spaceID=${listID}&userID=${userID}`,
     //pullURL: `/api/replicache/pull?spaceID=${listID}&userID=${userID}`,
-    name: `${listID}:${userID}`,
+    name: userID,
     mutators,
   });
 
@@ -55,7 +50,7 @@ async function init() {
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      <App rep={r} userID={userID} />
+      <App rep={r} userID={userID} listID={listID} />
     </React.StrictMode>,
   );
 }

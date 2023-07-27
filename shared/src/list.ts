@@ -12,4 +12,8 @@ export const listSchema = entitySchema.extend({
 export type List = z.infer<typeof listSchema>;
 export type ListUpdate = Update<List>;
 
-export const {init: createList, list: listLists} = generate('list', listSchema);
+export const {
+  init: createList,
+  list: listLists,
+  get: getList,
+} = generate('list', listSchema);

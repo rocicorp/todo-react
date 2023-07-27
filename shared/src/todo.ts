@@ -6,6 +6,7 @@ import {z} from 'zod';
 import {entitySchema, generate, Update} from '@rocicorp/rails';
 
 export const todoSchema = entitySchema.extend({
+  listID: z.string(),
   text: z.string(),
   completed: z.boolean(),
   sort: z.number(),

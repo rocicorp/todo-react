@@ -1,34 +1,48 @@
 import {nanoid} from 'nanoid';
 import React from 'react';
-import {Replicache} from 'replicache';
+import {ReadTransaction, Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
 import {M, listTodos, TodoUpdate} from 'shared';
-import {getExtent, type Extent} from 'shared/src/extent';
 
 import Header from './components/header';
 import MainSection from './components/main-section';
-import {listLists} from 'shared/src/list';
+import {getList, listLists} from 'shared/src/list';
 
 // This is the top-level component for our app.
-const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
+const App = ({
+  rep,
+  listID,
+}: {
+  rep: Replicache<M>;
+  userID: string;
+  listID: string | undefined;
+}) => {
   const lists = useSubscribe(rep, listLists, [], [rep]);
   lists.sort((a, b) => a.name.localeCompare(b.name));
+
+  const selectedList = useSubscribe(
+    rep,
+    (tx: ReadTransaction) => getList(tx, listID ?? ''),
+    undefined,
+    [rep],
+  );
 
   // Subscribe to all todos and sort them.
   const todos = useSubscribe(rep, listTodos, [], [rep]);
   todos.sort((a, b) => a.sort - b.sort);
 
-  const extent = useSubscribe(rep, tx => getExtent(tx, userID), {}, [rep]);
-
   // Define event handlers and connect them to Replicache mutators. Each
   // of these mutators runs immediately (optimistically) locally, then runs
   // again on the server-side automatically.
-  const handleNewItem = (text: string) =>
+  const handleNewItem = (text: string) => {
     rep.mutate.createTodo({
       id: nanoid(),
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      listID: listID!,
       text,
       completed: false,
     });
+  };
 
   const handleUpdateTodo = (update: TodoUpdate) =>
     rep.mutate.updateTodo(update);
@@ -48,16 +62,6 @@ const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
     }
   };
 
-  const handleUpdateExtent = async (update: Partial<Extent>) => {
-    await rep.mutate.updateExtent({
-      extent: {
-        ...extent,
-        ...update,
-      },
-      userID,
-    });
-  };
-
   const handleNewList = async (name: string) => {
     await rep.mutate.createList({
       id: nanoid(),
@@ -71,22 +75,27 @@ const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
     <div id="layout">
       <div id="nav">
         {lists.map(list => (
-          <a href={`/list/${list.id}`}>{list.name}</a>
+          <a key={list.id} href={`/list/${list.id}`}>
+            {list.name}
+          </a>
         ))}
       </div>
       <div className="todoapp">
         <Header
-          extent={extent}
-          onUpdateExtent={handleUpdateExtent}
+          listName={selectedList?.name}
           onNewItem={handleNewItem}
           onNewList={handleNewList}
         />
-        <MainSection
-          todos={todos}
-          onUpdateTodo={handleUpdateTodo}
-          onDeleteTodos={handleDeleteTodos}
-          onCompleteTodos={handleCompleteTodos}
-        />
+        {selectedList ? (
+          <MainSection
+            todos={todos}
+            onUpdateTodo={handleUpdateTodo}
+            onDeleteTodos={handleDeleteTodos}
+            onCompleteTodos={handleCompleteTodos}
+          />
+        ) : (
+          <div id="no-list-selected">No list selected</div>
+        )}
       </div>
     </div>
   );
