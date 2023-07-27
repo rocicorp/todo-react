@@ -7,9 +7,13 @@ import {getExtent, type Extent} from 'shared/src/extent';
 
 import Header from './components/header';
 import MainSection from './components/main-section';
+import {listLists} from 'shared/src/list';
 
 // This is the top-level component for our app.
 const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
+  const lists = useSubscribe(rep, listLists, [], [rep]);
+  lists.sort((a, b) => a.name.localeCompare(b.name));
+
   // Subscribe to all todos and sort them.
   const todos = useSubscribe(rep, listTodos, [], [rep]);
   todos.sort((a, b) => a.sort - b.sort);
@@ -54,20 +58,28 @@ const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
     });
   };
 
+  const handleNewList = async (name: string) => {
+    await rep.mutate.createList({
+      id: nanoid(),
+      name,
+    });
+  };
+
   // Render app.
 
   return (
     <div id="layout">
       <div id="nav">
-        <a href="?list=42">Groceries</a>
-        <a href="?list=43">TODO</a>
-        <a href="?list=43">Life Plan</a>
+        {lists.map(list => (
+          <a href={`/list/${list.id}`}>{list.name}</a>
+        ))}
       </div>
       <div className="todoapp">
         <Header
           extent={extent}
           onUpdateExtent={handleUpdateExtent}
           onNewItem={handleNewItem}
+          onNewList={handleNewList}
         />
         <MainSection
           todos={todos}
