@@ -29,23 +29,13 @@ const Header = ({
     <header className="header">
       <h1>{listName ?? 'todos'}</h1>
       <div id="toolbar">
-        <div id="login">
-          <label>User ID:</label>
-          <input type="text" />
-        </div>
-        <div id="buttons">
-          <input
-            type="button"
-            onClick={() => handleNewList()}
-            value="New List"
-          />
-          <input
-            type="button"
-            value="Delete List"
-            disabled={!listName}
-            onClick={() => handleDeleteList()}
-          />
-        </div>
+        <input type="button" onClick={() => handleNewList()} value="New List" />
+        <input
+          type="button"
+          value="Delete List"
+          disabled={!listName}
+          onClick={() => handleDeleteList()}
+        />
       </div>
       {listName && (
         <TodoTextInput

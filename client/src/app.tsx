@@ -9,7 +9,7 @@ import {getList, listLists} from 'shared/src/list';
 import Navigo from 'navigo';
 
 // This is the top-level component for our app.
-const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
+const App = ({rep}: {rep: Replicache<M>}) => {
   const router = new Navigo('/');
   const [listID, setListID] = useState('');
 

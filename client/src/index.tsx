@@ -4,7 +4,6 @@ import './index.css';
 import App from './app';
 import {mutators} from 'shared';
 import {Replicache} from 'replicache';
-import {nanoid} from 'nanoid';
 
 async function init() {
   // See https://doc.replicache.dev/licensing for how to get a license key.
@@ -13,14 +12,11 @@ async function init() {
     throw new Error('Missing VITE_REPLICACHE_LICENSE_KEY');
   }
 
-  const userID = localStorage.userID ?? (localStorage.userID = nanoid());
-  console.log({userID});
-
   const r = new Replicache({
+    name: 'anon',
     licenseKey,
-    //pushURL: `/api/replicache/push?spaceID=${listID}&userID=${userID}`,
-    //pullURL: `/api/replicache/pull?spaceID=${listID}&userID=${userID}`,
-    name: userID,
+    //pushURL: `/api/replicache/push?spaceID=${listID}`,
+    //pullURL: `/api/replicache/pull?spaceID=${listID}`,
     mutators,
   });
 
@@ -39,7 +35,7 @@ async function init() {
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      <App rep={r} userID={userID} />
+      <App rep={r} />
     </React.StrictMode>,
   );
 }

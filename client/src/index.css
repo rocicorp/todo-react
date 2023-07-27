@@ -38,18 +38,11 @@ body,
 #toolbar {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: end;
   position: absolute;
   width: 100%;
   top: -2.8em;
   align-items: center;
-}
-
-#toolbar #login {
-  display: flex;
-  flex-direction: row;
-  font-size: 120%;
-  color: black;
 }
 
 #toolbar label {
@@ -57,8 +50,8 @@ body,
 }
 
 #toolbar input[type='button'] {
-  margin-left: 1.5ex;
   font-size: 110%;
+  margin-left: 1.5ex;
   padding: 0.5ex 1.3ex;
 }
 
