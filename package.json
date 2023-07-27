@@ -24,8 +24,7 @@
   },
   "workspaces": [
     "client",
-    "server",
-    "shared"
+    "server"
   ],
   "dependencies": {
     "replicache": "^13.0.0-beta.2",

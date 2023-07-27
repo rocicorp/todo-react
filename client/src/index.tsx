@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './app';
-import {mutators} from 'shared';
+import {mutators} from './mutators';
 import {Replicache} from 'replicache';
 
 async function init() {

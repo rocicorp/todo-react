@@ -26,7 +26,6 @@
 // required to get up and running.
 
 import type {WriteTransaction} from 'replicache';
-import {Extent, getExtent} from './extent';
 import {Todo, listTodos, TodoUpdate} from './todo';
 import {createList, deleteList} from './list';
 
@@ -64,13 +63,5 @@ export const mutators = {
 
     const maxSort = todos.pop()?.sort ?? 0;
     await tx.put(`todo/${todo.id}`, {...todo, sort: maxSort + 1});
-  },
-
-  updateExtent: async (
-    tx: WriteTransaction,
-    {userID, extent}: {userID: string; extent: Partial<Extent>},
-  ) => {
-    const prev = await getExtent(tx, userID);
-    await tx.put(`extent/${userID}`, {...prev, ...extent});
   },
 };
