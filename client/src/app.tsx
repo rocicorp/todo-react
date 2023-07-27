@@ -35,14 +35,6 @@ const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
     [rep, listID],
   );
 
-  useEffect(() => {
-    // If the list has been deleted, nav elsewhere.
-    if (listID && !selectedList) {
-      const path = lists.length > 0 ? `/list/${lists[0].id}` : '/';
-      router.navigate(path);
-    }
-  }, [router, listID, lists]);
-
   // Subscribe to all todos and sort them.
   const todos = useSubscribe(
     rep,

@@ -4,6 +4,7 @@ import './index.css';
 import App from './app';
 import {mutators} from 'shared';
 import {Replicache} from 'replicache';
+import {nanoid} from 'nanoid';
 
 async function init() {
   // See https://doc.replicache.dev/licensing for how to get a license key.
@@ -12,7 +13,8 @@ async function init() {
     throw new Error('Missing VITE_REPLICACHE_LICENSE_KEY');
   }
 
-  const userID = localStorage.userID ?? (localStorage.userID = Math.random());
+  const userID = localStorage.userID ?? (localStorage.userID = nanoid());
+  console.log({userID});
 
   const r = new Replicache({
     licenseKey,
