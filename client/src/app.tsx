@@ -1,30 +1,38 @@
 import {nanoid} from 'nanoid';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {ReadTransaction, Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
 import {M, listTodos, TodoUpdate} from 'shared';
-
 import Header from './components/header';
 import MainSection from './components/main-section';
 import {getList, listLists} from 'shared/src/list';
+import Navigo from 'navigo';
 
 // This is the top-level component for our app.
-const App = ({
-  rep,
-  listID,
-}: {
-  rep: Replicache<M>;
-  userID: string;
-  listID: string | undefined;
-}) => {
+const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
+  const router = new Navigo('/');
+  const [listID, setListID] = useState('');
+
+  router.on('/list/:listID', match => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const {data} = match!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const {listID} = data!;
+    setListID(listID);
+  });
+
+  useEffect(() => {
+    router.resolve();
+  }, []);
+
   const lists = useSubscribe(rep, listLists, [], [rep]);
   lists.sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedList = useSubscribe(
     rep,
-    (tx: ReadTransaction) => getList(tx, listID ?? ''),
+    (tx: ReadTransaction) => getList(tx, listID),
     undefined,
-    [rep],
+    [rep, listID],
   );
 
   // Subscribe to all todos and sort them.
@@ -37,8 +45,7 @@ const App = ({
   const handleNewItem = (text: string) => {
     rep.mutate.createTodo({
       id: nanoid(),
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      listID: listID!,
+      listID,
       text,
       completed: false,
     });
@@ -63,10 +70,12 @@ const App = ({
   };
 
   const handleNewList = async (name: string) => {
+    const id = nanoid();
     await rep.mutate.createList({
-      id: nanoid(),
+      id,
       name,
     });
+    router.navigate(`/list/${id}`);
   };
 
   // Render app.
@@ -74,11 +83,22 @@ const App = ({
   return (
     <div id="layout">
       <div id="nav">
-        {lists.map(list => (
-          <a key={list.id} href={`/list/${list.id}`}>
-            {list.name}
-          </a>
-        ))}
+        {lists.map(list => {
+          const path = `/list/${list.id}`;
+          return (
+            <a
+              key={list.id}
+              href={path}
+              onClick={e => {
+                router.navigate(path);
+                e.preventDefault();
+                return false;
+              }}
+            >
+              {list.name}
+            </a>
+          );
+        })}
       </div>
       <div className="todoapp">
         <Header
