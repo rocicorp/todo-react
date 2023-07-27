@@ -36,8 +36,8 @@ async function init() {
 
   const r = new Replicache({
     licenseKey,
-    pushURL: `/api/replicache/push?spaceID=${listID}&userID=${userID}`,
-    pullURL: `/api/replicache/pull?spaceID=${listID}&userID=${userID}`,
+    //pushURL: `/api/replicache/push?spaceID=${listID}&userID=${userID}`,
+    //pullURL: `/api/replicache/pull?spaceID=${listID}&userID=${userID}`,
     name: `${listID}:${userID}`,
     mutators,
   });

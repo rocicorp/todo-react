@@ -26,5 +26,9 @@
     "client",
     "server",
     "shared"
-  ]
+  ],
+  "dependencies": {
+    "replicache": "^13.0.0-beta.2",
+    "@rocicorp/rails": "0.5.0-beta.0"
+  }
 }
