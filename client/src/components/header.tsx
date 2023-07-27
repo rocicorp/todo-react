@@ -2,8 +2,6 @@ import TodoTextInput from './todo-text-input';
 import type {Extent} from 'shared/src/extent';
 
 const Header = ({
-  extent,
-  onUpdateExtent,
   onNewItem,
 }: {
   extent: Extent | undefined;
@@ -11,20 +9,16 @@ const Header = ({
   onNewItem: (text: string) => void;
 }) => (
   <header className="header">
-    <h1>todos</h1>
-    <div style={{position: 'absolute', top: '-30px'}}>
-      <input
-        type="checkbox"
-        checked={extent?.includeComplete ?? false}
-        id="include-complete"
-        onChange={() =>
-          onUpdateExtent({
-            includeComplete: !extent?.includeComplete,
-          })
-        }
-        style={{marginRight: '0.5em'}}
-      />
-      <label htmlFor="include-complete">Include completed</label>
+    <h1>Groceries</h1>
+    <div id="toolbar">
+      <div id="login">
+        <label>User ID:</label>
+        <input type="text" value="dffdfasdfjiwf" />
+      </div>
+      <div id="buttons">
+        <input type="button" value="New List" />
+        <input type="button" value="Delete List" />
+      </div>
     </div>
     <TodoTextInput
       initial=""

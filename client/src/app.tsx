@@ -57,18 +57,25 @@ const App = ({rep, userID}: {rep: Replicache<M>; userID: string}) => {
   // Render app.
 
   return (
-    <div className="todoapp">
-      <Header
-        extent={extent}
-        onUpdateExtent={handleUpdateExtent}
-        onNewItem={handleNewItem}
-      />
-      <MainSection
-        todos={todos}
-        onUpdateTodo={handleUpdateTodo}
-        onDeleteTodos={handleDeleteTodos}
-        onCompleteTodos={handleCompleteTodos}
-      />
+    <div id="layout">
+      <div id="nav">
+        <a href="?list=42">Groceries</a>
+        <a href="?list=43">TODO</a>
+        <a href="?list=43">Life Plan</a>
+      </div>
+      <div className="todoapp">
+        <Header
+          extent={extent}
+          onUpdateExtent={handleUpdateExtent}
+          onNewItem={handleNewItem}
+        />
+        <MainSection
+          todos={todos}
+          onUpdateTodo={handleUpdateTodo}
+          onDeleteTodos={handleDeleteTodos}
+          onCompleteTodos={handleCompleteTodos}
+        />
+      </div>
     </div>
   );
 };
