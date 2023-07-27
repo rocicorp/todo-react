@@ -2,7 +2,7 @@ import {nanoid} from 'nanoid';
 import React, {useEffect, useState} from 'react';
 import {ReadTransaction, Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
-import {M, listTodos, TodoUpdate} from 'shared';
+import {M, TodoUpdate, todosByList} from 'shared';
 import Header from './components/header';
 import MainSection from './components/main-section';
 import {getList, listLists} from 'shared/src/list';
@@ -44,7 +44,12 @@ const App = ({rep}: {rep: Replicache<M>; userID: string}) => {
   }, [router, listID, lists]);
 
   // Subscribe to all todos and sort them.
-  const todos = useSubscribe(rep, listTodos, [], [rep]);
+  const todos = useSubscribe(
+    rep,
+    async tx => todosByList(tx, listID),
+    [],
+    [rep, listID],
+  );
   todos.sort((a, b) => a.sort - b.sort);
 
   // Define event handlers and connect them to Replicache mutators. Each

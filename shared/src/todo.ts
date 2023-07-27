@@ -4,6 +4,7 @@
 
 import {z} from 'zod';
 import {entitySchema, generate, Update} from '@rocicorp/rails';
+import type {ReadTransaction} from 'replicache';
 
 export const todoSchema = entitySchema.extend({
   listID: z.string(),
@@ -22,3 +23,9 @@ export const {
   delete: deleteTodo,
   list: listTodos,
 } = generate('todo', todoSchema);
+
+export async function todosByList(tx: ReadTransaction, listID: string) {
+  // TODO: would be better to use an index, but rails doesn't support yet.
+  const allTodos = await listTodos(tx);
+  return allTodos.filter(todo => todo.listID === listID);
+}
