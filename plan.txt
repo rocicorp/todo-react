@@ -4,8 +4,8 @@ Email Cloudflare
 x How come data isn’t disappearing with empty patch
 x investigate squelize
 Specific poke channels
-Implement mutators for lists and todos
-Implement reset pull
+x Implement mutators for lists and todos
+x Implement reset pull
 ==== breathe ====
 Implement row versioning
 ==== breathe ====
