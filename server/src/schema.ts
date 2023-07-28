@@ -20,6 +20,12 @@ export async function createSchemaVersion1(executor: Executor) {
     "insert into replicache_meta (key, value) values ('schemaVersion', '1')",
   );
 
+  await executor(`create table replicache_client_group (
+    id varchar(36) primary key not null,
+    lastcvrversion integer not null,
+    lastmodified timestamp(6) not null
+    )`);
+
   await executor(`create table replicache_client (
     id varchar(36) primary key not null,
     clientgroupid varchar(36) not null,

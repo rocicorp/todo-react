@@ -6,6 +6,7 @@ import {
   createTodo,
   deleteList,
   deleteTodo,
+  ensureClientGroup,
   getLastMutationID,
   setLastMutationID,
   updateTodo,
@@ -88,12 +89,15 @@ async function processMutation(
       }
     }
 
-    await setLastMutationID(
-      executor,
-      mutation.clientID,
-      clientGroupID,
-      mutation.id,
-    );
+    await Promise.all([
+      ensureClientGroup(executor, clientGroupID),
+      setLastMutationID(
+        executor,
+        mutation.clientID,
+        clientGroupID,
+        mutation.id,
+      ),
+    ]);
     console.log('Processed mutation in', Date.now() - t1);
     return null;
   });

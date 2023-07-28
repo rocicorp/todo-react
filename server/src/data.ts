@@ -95,6 +95,27 @@ export async function getTodos(executor: Executor, todoIDs: string[]) {
   });
 }
 
+export async function ensureClientGroup(
+  executor: Executor,
+  clientGroupID: string,
+) {
+  await executor(
+    `insert into replicache_client_group (id, lastcvrversion, lastmodified) values ($1, 0, now()) on conflict do nothing`,
+    [clientGroupID],
+  );
+}
+
+export async function getNextCVRVersion(
+  executor: Executor,
+  clientGroupID: string,
+) {
+  const {rows} = await executor(
+    `update replicache_client_group set lastcvrversion = lastcvrversion + 1 where id = $1 returning lastcvrversion`,
+    [clientGroupID],
+  );
+  return (rows?.[0]?.lastcvrversion as number) ?? 0;
+}
+
 export async function searchClients(
   executor: Executor,
   {clientGroupID}: {clientGroupID: string},
@@ -129,10 +150,10 @@ export async function setLastMutationID(
 ): Promise<void> {
   await executor(
     `
-    insert into replicache_client (id, clientgroupid, lastmutationid, lastmodified)
-    values ($1, $2, $3, now())
-      on conflict (id) do update set lastmutationid = $3, lastmodified = now()
-    `,
+      insert into replicache_client (id, clientgroupid, lastmutationid, lastmodified)
+      values ($1, $2, $3, now())
+        on conflict (id) do update set lastmutationid = $3, lastmodified = now()
+      `,
     [clientID, clientGroupID, lastMutationID],
   );
 }
