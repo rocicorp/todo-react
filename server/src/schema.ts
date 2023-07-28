@@ -30,6 +30,7 @@ export async function createSchemaVersion1(executor: Executor) {
   await executor(`create table list (
     id varchar(36) primary key not null,
     name text not null,
+    rowversion integer not null,
     lastmodified timestamp(6) not null
     )`);
 
@@ -39,6 +40,7 @@ export async function createSchemaVersion1(executor: Executor) {
     title text not null,
     complete boolean not null,
     ord integer not null,
+    rowversion integer not null,
     lastmodified timestamp(6) not null
     )`);
 }
