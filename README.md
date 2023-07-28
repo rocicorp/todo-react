@@ -79,5 +79,6 @@ Open the `render.yaml` file and add your license key
 
 Commit the changes and follow the direction on [Deploying to Render](https://doc.replicache.dev/deploy-render)
 /client
+/shared
 /server
 package.json

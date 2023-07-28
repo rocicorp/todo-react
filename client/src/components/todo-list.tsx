@@ -1,4 +1,4 @@
-import {Todo, TodoUpdate} from '../todo';
+import {Todo, TodoUpdate} from 'shared';
 import {TodoItem} from './todo-item';
 
 const TodoList = ({

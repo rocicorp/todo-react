@@ -2,11 +2,11 @@ import {nanoid} from 'nanoid';
 import React, {useEffect, useState} from 'react';
 import {ReadTransaction, Replicache} from 'replicache';
 import {useSubscribe} from 'replicache-react';
-import {TodoUpdate, todosByList} from './todo';
+import {TodoUpdate, todosByList} from 'shared';
 import {M} from './mutators';
-import {getList, listLists} from './list';
 import Header from './components/header';
 import MainSection from './components/main-section';
+import {getList, listLists} from 'shared/src/list';
 import Navigo from 'navigo';
 
 // This is the top-level component for our app.
@@ -49,7 +49,7 @@ const App = ({rep}: {rep: Replicache<M>}) => {
   // of these mutators runs immediately (optimistically) locally, then runs
   // again on the server-side automatically.
   const handleNewItem = (text: string) => {
-    void rep.mutate.createTodo({
+    rep.mutate.createTodo({
       id: nanoid(),
       listID,
       text,
