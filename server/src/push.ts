@@ -1,8 +1,18 @@
 import {z} from 'zod';
-import {transact} from './pg';
+import {Executor, transact} from './pg';
 import {getPokeBackend} from './poke';
-import {getLastMutationID, setLastMutationID} from './data';
+import {
+  createList,
+  createTodo,
+  deleteList,
+  deleteTodo,
+  getLastMutationID,
+  setLastMutationID,
+  updateTodo,
+} from './data';
 import type {ReadonlyJSONValue} from 'replicache';
+import {listSchema, todoSchema} from 'shared';
+import {entitySchema} from '@rocicorp/rails';
 
 const mutationSchema = z.object({
   id: z.number(),
@@ -11,78 +21,101 @@ const mutationSchema = z.object({
   args: z.any(),
 });
 
+type Mutation = z.infer<typeof mutationSchema>;
+
 const pushRequestSchema = z.object({
   clientGroupID: z.string(),
   mutations: z.array(mutationSchema),
 });
 
-export async function push(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  requestBody: ReadonlyJSONValue,
-) {
+export async function push(requestBody: ReadonlyJSONValue) {
   console.log('Processing push', JSON.stringify(requestBody, null, ''));
 
   const push = pushRequestSchema.parse(requestBody);
 
   const t0 = Date.now();
-  await transact(async executor => {
-    const lastMutationIDs = new Map<string, number>();
 
-    for (let i = 0; i < push.mutations.length; i++) {
-      const mutation = push.mutations[i];
+  for (const mutation of push.mutations) {
+    const error = await processMutation(push.clientGroupID, mutation, null);
+    if (error !== null) {
+      await processMutation(push.clientGroupID, mutation, error);
+    }
+  }
 
-      const lastMutationID =
-        lastMutationIDs.get(mutation.clientID) ??
-        (await getLastMutationID(executor, mutation.clientID)) ??
-        0;
-      console.log('lastMutationID:', lastMutationID);
+  const pokeBackend = getPokeBackend();
+  pokeBackend.poke('all');
 
-      const expectedMutationID = lastMutationID + 1;
+  console.log('Processed all mutations in', Date.now() - t0);
+}
 
-      if (mutation.id < expectedMutationID) {
-        console.log(
-          `Mutation ${mutation.id} has already been processed - skipping`,
-        );
-        continue;
-      }
-      if (mutation.id > expectedMutationID) {
-        throw new Error(
-          `Mutation ${mutation.id} is from the future - aborting`,
-        );
-      }
+async function processMutation(
+  clientGroupID: string,
+  mutation: Mutation,
+  error: string | null,
+) {
+  return await transact(async executor => {
+    console.log(
+      error === null ? 'Processing mutation' : 'Processing mutation error',
+      JSON.stringify(mutation, null, ''),
+    );
 
-      console.log('Processing mutation:', JSON.stringify(mutation, null, ''));
+    const lastMutationID =
+      (await getLastMutationID(executor, mutation.clientID)) ?? 0;
+    console.log('lastMutationID:', lastMutationID);
 
-      const t1 = Date.now();
+    const expectedMutationID = lastMutationID + 1;
 
+    if (mutation.id < expectedMutationID) {
+      console.log(
+        `Mutation ${mutation.id} has already been processed - skipping`,
+      );
+      return null;
+    }
+    if (mutation.id > expectedMutationID) {
+      throw new Error(`Mutation ${mutation.id} is from the future - aborting`);
+    }
+
+    const t1 = Date.now();
+
+    if (error === null) {
       try {
-        // todo: mutator
+        await mutate(executor, mutation);
       } catch (e) {
         console.error(
           `Error executing mutation: ${JSON.stringify(mutation)}: ${e}`,
         );
+        return String(e);
       }
-
-      lastMutationIDs.set(mutation.clientID, expectedMutationID);
-      console.log('Processed mutation in', Date.now() - t1);
     }
 
-    console.log('saving mutation changes', lastMutationIDs);
-
-    await Promise.all(
-      [...lastMutationIDs.entries()].map(([clientID, lastMutationID]) =>
-        setLastMutationID(
-          executor,
-          clientID,
-          push.clientGroupID,
-          lastMutationID,
-        ),
-      ),
+    await setLastMutationID(
+      executor,
+      mutation.clientID,
+      clientGroupID,
+      mutation.id,
     );
-
-    const pokeBackend = getPokeBackend();
-    await pokeBackend.poke('all');
+    console.log('Processed mutation in', Date.now() - t1);
+    return null;
   });
+}
 
-  console.log('Processed all mutations in', Date.now() - t0);
+async function mutate(executor: Executor, mutation: Mutation) {
+  switch (mutation.name) {
+    case 'createList':
+      return await createList(executor, listSchema.parse(mutation.args));
+    case 'deleteList':
+      return await deleteList(executor, z.string().parse(mutation.args));
+    case 'createTodo':
+      return await createTodo(
+        executor,
+        todoSchema.omit({sort: true}).parse(mutation.args),
+      );
+    case 'updateTodo':
+      return await updateTodo(
+        executor,
+        todoSchema.partial().merge(entitySchema).parse(mutation.args),
+      );
+    case 'deleteTodo':
+      return await deleteTodo(executor, z.string().parse(mutation.args));
+  }
 }
