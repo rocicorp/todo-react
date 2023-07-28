@@ -23,7 +23,7 @@ export async function pull(
   console.log({lmids});
 
   const resp: PullResponseOKV1 = {
-    cookie: 1,
+    cookie: Date.now(),
     lastMutationIDChanges: Object.fromEntries(
       lmids.map(e => [e.id, e.lastmutationid] as const),
     ),

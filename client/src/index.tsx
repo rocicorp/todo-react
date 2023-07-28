@@ -18,12 +18,13 @@ async function init() {
     pushURL: `/api/replicache/push`,
     pullURL: `/api/replicache/pull`,
     mutators,
+    logLevel: 'debug',
   });
 
   // Implements a Replicache poke using Server-Sent Events.
   // If a "poke" message is received, it will pull from the server.
-  /*
-  const ev = new EventSource(`/api/replicache/poke?spaceID=${listID}`, {
+  // TODO: listen to only the nav and list we're looking at (or maybe extent).
+  const ev = new EventSource(`/api/replicache/poke?channel=all`, {
     withCredentials: true,
   });
   ev.onmessage = async event => {
@@ -31,7 +32,6 @@ async function init() {
       await r.pull();
     }
   };
-  */
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>

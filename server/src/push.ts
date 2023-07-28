@@ -81,7 +81,7 @@ export async function push(
     );
 
     const pokeBackend = getPokeBackend();
-    await pokeBackend.poke('TODO');
+    await pokeBackend.poke('all');
   });
 
   console.log('Processed all mutations in', Date.now() - t0);

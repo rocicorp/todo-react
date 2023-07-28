@@ -1,0 +1,19 @@
+x Talk to Greg
+Email Cloudflare
+===================
+x How come data isn’t disappearing with empty patch
+x investigate squelize
+Specific poke channels
+Implement mutators for lists and todos
+Implement reset pull
+==== breathe ====
+Implement row versioning
+==== breathe ====
+Implement extents
+==== breathe ====
+fix install conflict
+share
+==== breathe ====
+Finish docs
+==== breathe ====
+ship
