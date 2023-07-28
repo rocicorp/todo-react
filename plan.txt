@@ -1,19 +1,22 @@
 x Talk to Greg
-Email Cloudflare
+- Email Cloudflare
 ===================
 x How come data isn’t disappearing with empty patch
 x investigate squelize
-Specific poke channels
+- Specific poke channels
 x Implement mutators for lists and todos
 x Implement reset pull
 ==== breathe ====
 Implement row versioning
+x app data
+- client data
+- cookie
 ==== breathe ====
-Implement extents
+- Implement extents
 ==== breathe ====
-fix install conflict
-share
+- fix install conflict
+- share
 ==== breathe ====
-Finish docs
+- Finish docs
 ==== breathe ====
-ship
+- ship
