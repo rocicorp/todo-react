@@ -9,7 +9,7 @@ x Implement reset pull
 ==== breathe ====
 Implement row versioning
 x app data
-- client data
+x client data
 x cookie
 ==== breathe ====
 - Implement extents

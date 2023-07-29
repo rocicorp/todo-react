@@ -3,26 +3,29 @@ import type {PatchOperation, PullResponse, PullResponseOKV1} from 'replicache';
 import type Express from 'express';
 import {transact} from './pg';
 import {
-  ensureClientGroup,
+  getClientGroupForUpdate,
   getLists,
-  getNextCVRVersion,
   getTodos,
+  putClientGroup,
   searchClients,
   searchLists,
   searchTodos,
 } from './data';
-import {ClientViewRecord} from './cvr';
+import {ClientViewData} from './cvr';
 
 const pullRequest = z.object({
   clientGroupID: z.string(),
   cookie: z.any(),
 });
 
+type ClientViewRecord = {
+  list: ClientViewData;
+  todo: ClientViewData;
+  clientVersion: number;
+};
+
 // cvrKey -> ClientViewRecord
-const cvrCache = new Map<
-  string,
-  {list: ClientViewRecord; todo: ClientViewRecord}
->();
+const cvrCache = new Map<string, ClientViewRecord>();
 
 export async function pull(
   requestBody: Express.Request,
@@ -30,57 +33,78 @@ export async function pull(
   console.log(`Processing pull`, JSON.stringify(requestBody, null, ''));
 
   const pull = pullRequest.parse(requestBody);
-  console.log({pull});
 
   const {clientGroupID} = pull;
-  const prevCVRs = cvrCache.get(makeCVRKey(clientGroupID, pull.cookie));
-  const baseCVRs = prevCVRs ?? {
-    list: new ClientViewRecord(),
-    todo: new ClientViewRecord(),
+  const prevCVR = cvrCache.get(makeCVRKey(clientGroupID, pull.cookie));
+  const baseCVR = prevCVR ?? {
+    list: new ClientViewData(),
+    todo: new ClientViewData(),
+    clientVersion: 0,
   };
+  console.log({prevCVR, baseCVR});
 
-  console.log({baseCVRs});
-
-  const {nextCVRs, nextCVRVersion, clients, lists, todos} = await transact(
+  const {nextCVRVersion, nextCVR, clientChanges, lists, todos} = await transact(
     async executor => {
-      await ensureClientGroup(executor, clientGroupID);
-      const nextCVRVersion = await getNextCVRVersion(executor, clientGroupID);
+      const [baseClientGroupRecord, clientChanges, listMeta] =
+        await Promise.all([
+          getClientGroupForUpdate(executor, clientGroupID),
+          searchClients(executor, {
+            clientGroupID,
+            sinceClientVersion: baseCVR.clientVersion,
+          }),
+          searchLists(executor),
+        ]);
 
-      const [clients, listResult] = await Promise.all([
-        searchClients(executor, {
-          clientGroupID,
-        }),
-        await searchLists(executor),
-      ]);
+      console.log({baseClientGroupRecord, clientChanges, listMeta});
 
-      const todoResult = await searchTodos(executor, {
-        listIDs: listResult.map(l => l.id),
+      const todoMeta = await searchTodos(executor, {
+        listIDs: listMeta.map(l => l.id),
       });
 
-      const nextCVRs = {
-        list: ClientViewRecord.fromSearchResult(listResult),
-        todo: ClientViewRecord.fromSearchResult(todoResult),
+      console.log({todoMeta});
+
+      const nextCVR: ClientViewRecord = {
+        list: ClientViewData.fromSearchResult(listMeta),
+        todo: ClientViewData.fromSearchResult(todoMeta),
+        clientVersion: baseClientGroupRecord.clientVersion,
       };
 
-      const listPuts = nextCVRs.list.getPutsSince(baseCVRs.list);
-      const todoPuts = nextCVRs.todo.getPutsSince(baseCVRs.todo);
+      const listPuts = nextCVR.list.getPutsSince(baseCVR.list);
+      const todoPuts = nextCVR.todo.getPutsSince(baseCVR.todo);
+
+      const nextClientGroupRecord = {
+        ...baseClientGroupRecord,
+        cvrVersion: baseClientGroupRecord.cvrVersion + 1,
+      };
+
+      console.log({listPuts, todoPuts, nextClientGroupRecord});
 
       const [lists, todos] = await Promise.all([
         getLists(executor, listPuts),
         getTodos(executor, todoPuts),
+        putClientGroup(executor, nextClientGroupRecord),
       ]);
-      console.log({listPuts, lists, todoPuts, todos});
 
-      return {nextCVRs, nextCVRVersion, clients, lists, todos};
+      return {
+        nextCVRVersion: nextClientGroupRecord.cvrVersion,
+        nextCVR,
+        clientChanges,
+        lists,
+        todos,
+      };
     },
   );
 
-  const listDels = nextCVRs.list.getDelsSince(baseCVRs.list);
-  const todoDels = nextCVRs.todo.getDelsSince(baseCVRs.todo);
+  console.log({nextCVRVersion, nextCVR, clientChanges, lists, todos});
+
+  const listDels = nextCVR.list.getDelsSince(baseCVR.list);
+  const todoDels = nextCVR.todo.getDelsSince(baseCVR.todo);
+
+  console.log({listDels, todoDels});
 
   const patch: PatchOperation[] = [];
 
-  if (prevCVRs === undefined) {
+  if (prevCVR === undefined) {
     patch.push({op: 'clear'});
   }
 
@@ -101,12 +125,12 @@ export async function pull(
   const resp: PullResponseOKV1 = {
     cookie: respCookie,
     lastMutationIDChanges: Object.fromEntries(
-      clients.map(e => [e.id, e.lastmutationid] as const),
+      clientChanges.map(e => [e.id, e.lastMutationID] as const),
     ),
     patch,
   };
 
-  cvrCache.set(makeCVRKey(clientGroupID, respCookie), nextCVRs);
+  cvrCache.set(makeCVRKey(clientGroupID, respCookie), nextCVR);
 
   return resp;
 }

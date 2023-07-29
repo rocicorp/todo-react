@@ -22,7 +22,8 @@ export async function createSchemaVersion1(executor: Executor) {
 
   await executor(`create table replicache_client_group (
     id varchar(36) primary key not null,
-    lastcvrversion integer not null,
+    cvrversion integer not null,
+    clientversion integer not null,
     lastmodified timestamp(6) not null
     )`);
 
@@ -30,6 +31,7 @@ export async function createSchemaVersion1(executor: Executor) {
     id varchar(36) primary key not null,
     clientgroupid varchar(36) not null,
     lastmutationid integer not null,
+    clientversion integer not null,
     lastmodified timestamp(6) not null
     )`);
 

@@ -1,12 +1,12 @@
 import type {SearchResult} from './data';
 
-export class ClientViewRecord {
+export class ClientViewData {
   constructor() {
     this._data = new Map();
   }
 
   static fromSearchResult(result: SearchResult[]) {
-    const cvr = new ClientViewRecord();
+    const cvr = new ClientViewData();
     for (const row of result) {
       cvr._data.set(row.id, row.rowversion);
     }
@@ -15,7 +15,7 @@ export class ClientViewRecord {
 
   private _data: Map<string, number> = new Map();
 
-  getPutsSince(cvr: ClientViewRecord) {
+  getPutsSince(cvr: ClientViewData) {
     const puts: string[] = [];
     for (const [id, rowversion] of this._data) {
       const prev = cvr._data.get(id);
@@ -26,7 +26,7 @@ export class ClientViewRecord {
     return puts;
   }
 
-  getDelsSince(cvr: ClientViewRecord) {
+  getDelsSince(cvr: ClientViewData) {
     const dels: string[] = [];
     for (const [id] of cvr._data) {
       if (!this._data.get(id)) {

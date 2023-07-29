@@ -6,9 +6,10 @@ import {
   createTodo,
   deleteList,
   deleteTodo,
-  ensureClientGroup,
-  getLastMutationID,
-  setLastMutationID,
+  getClientForUpdate,
+  getClientGroupForUpdate,
+  putClient,
+  putClientGroup,
   updateTodo,
 } from './data';
 import type {ReadonlyJSONValue} from 'replicache';
@@ -60,19 +61,23 @@ async function processMutation(
       JSON.stringify(mutation, null, ''),
     );
 
-    const lastMutationID =
-      (await getLastMutationID(executor, mutation.clientID)) ?? 0;
-    console.log('lastMutationID:', lastMutationID);
+    const [baseClientGroup, baseClient] = await Promise.all([
+      await getClientGroupForUpdate(executor, clientGroupID),
+      await getClientForUpdate(executor, mutation.clientID),
+    ]);
 
-    const expectedMutationID = lastMutationID + 1;
+    console.log({baseClientGroup, baseClient});
 
-    if (mutation.id < expectedMutationID) {
+    const nextClientVersion = baseClientGroup.clientVersion + 1;
+    const nextMutationID = baseClient.lastMutationID + 1;
+
+    if (mutation.id < nextMutationID) {
       console.log(
         `Mutation ${mutation.id} has already been processed - skipping`,
       );
       return null;
     }
-    if (mutation.id > expectedMutationID) {
+    if (mutation.id > nextMutationID) {
       throw new Error(`Mutation ${mutation.id} is from the future - aborting`);
     }
 
@@ -89,14 +94,22 @@ async function processMutation(
       }
     }
 
+    const nextClientGroup = {
+      id: clientGroupID,
+      cvrVersion: baseClientGroup.cvrVersion,
+      clientVersion: nextClientVersion,
+    };
+
+    const nextClient = {
+      id: mutation.clientID,
+      clientGroupID,
+      lastMutationID: nextMutationID,
+      clientVersion: nextClientVersion,
+    };
+
     await Promise.all([
-      ensureClientGroup(executor, clientGroupID),
-      setLastMutationID(
-        executor,
-        mutation.clientID,
-        clientGroupID,
-        mutation.id,
-      ),
+      putClientGroup(executor, nextClientGroup),
+      putClient(executor, nextClient),
     ]);
     console.log('Processed mutation in', Date.now() - t1);
     return null;
