@@ -13,6 +13,15 @@ x client data
 x cookie
 ==== breathe ====
 - Implement extents
+  - add user field to UI that stores in local storage
+  - send user in push/pull requests
+  - add owner field to list table
+  - plumb userID through to mutators and populate when create list
+  - change sync to only sync lists you are owner of
+  - add acl table
+  - add share ui to modify acl table
+  - change sync to obey acl table
+
 ==== breathe ====
 - fix install conflict
 - share
