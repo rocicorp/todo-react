@@ -2,14 +2,18 @@ import TodoTextInput from './todo-text-input';
 
 const Header = ({
   listName,
+  userID,
   onNewItem,
   onNewList,
   onDeleteList,
+  onUserIDChange,
 }: {
   listName: string | undefined;
+  userID: string;
   onNewItem: (text: string) => void;
   onNewList: (text: string) => void;
   onDeleteList: () => void;
+  onUserIDChange: (userID: string) => void;
 }) => {
   const handleNewList = () => {
     const name = prompt('Enter a new list name');
@@ -29,13 +33,28 @@ const Header = ({
     <header className="header">
       <h1>{listName ?? 'todos'}</h1>
       <div id="toolbar">
-        <input type="button" onClick={() => handleNewList()} value="New List" />
-        <input
-          type="button"
-          value="Delete List"
-          disabled={!listName}
-          onClick={() => handleDeleteList()}
-        />
+        <div id="login">
+          UserID:&nbsp;
+          <input
+            type="text"
+            id="userID"
+            value={userID}
+            onChange={e => onUserIDChange(e.target.value)}
+          />
+        </div>
+        <div id="buttons">
+          <input
+            type="button"
+            onClick={() => handleNewList()}
+            value="New List"
+          />
+          <input
+            type="button"
+            value="Delete List"
+            disabled={!listName}
+            onClick={() => handleDeleteList()}
+          />
+        </div>
       </div>
       {listName && (
         <TodoTextInput

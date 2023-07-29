@@ -10,7 +10,15 @@ import {getList, listLists} from 'shared/src/list';
 import Navigo from 'navigo';
 
 // This is the top-level component for our app.
-const App = ({rep}: {rep: Replicache<M>}) => {
+const App = ({
+  rep,
+  userID,
+  onUserIDChange,
+}: {
+  rep: Replicache<M>;
+  userID: string;
+  onUserIDChange: (userID: string) => void;
+}) => {
   const router = new Navigo('/');
   const [listID, setListID] = useState('');
 
@@ -49,7 +57,7 @@ const App = ({rep}: {rep: Replicache<M>}) => {
   // of these mutators runs immediately (optimistically) locally, then runs
   // again on the server-side automatically.
   const handleNewItem = (text: string) => {
-    rep.mutate.createTodo({
+    void rep.mutate.createTodo({
       id: nanoid(),
       listID,
       text,
@@ -113,9 +121,11 @@ const App = ({rep}: {rep: Replicache<M>}) => {
       <div className="todoapp">
         <Header
           listName={selectedList?.name}
+          userID={userID}
           onNewItem={handleNewItem}
           onNewList={handleNewList}
           onDeleteList={handleDeleteList}
+          onUserIDChange={onUserIDChange}
         />
         {selectedList ? (
           <MainSection

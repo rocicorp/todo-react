@@ -38,11 +38,27 @@ body,
 #toolbar {
   display: flex;
   flex-direction: row;
-  justify-content: end;
+  justify-content: stretch;
   position: absolute;
   width: 100%;
   top: -2.8em;
   align-items: center;
+  font-size: 110%;
+}
+
+#toolbar #login {
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+  font-size: 110%;
+}
+
+#toolbar #buttons {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  align-items: center;
+  flex: 1;
 }
 
 #toolbar label {
