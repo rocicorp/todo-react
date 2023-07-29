@@ -87,6 +87,7 @@ const App = ({
     const id = nanoid();
     await rep.mutate.createList({
       id,
+      ownerID: userID,
       name,
     });
     router.navigate(`/list/${id}`);

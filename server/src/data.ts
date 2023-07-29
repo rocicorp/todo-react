@@ -21,8 +21,8 @@ export type ClientRecord = {
 
 export async function createList(executor: Executor, list: List) {
   await executor(
-    `insert into list (id, name, rowversion, lastmodified) values ($1, $2, 1, now())`,
-    [list.id, list.name],
+    `insert into list (id, ownerid, name, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
+    [list.id, list.ownerID, list.name],
   );
 }
 
@@ -38,12 +38,19 @@ export async function searchLists(executor: Executor) {
 export async function getLists(executor: Executor, listIDs: string[]) {
   if (listIDs.length === 0) return [];
   const {rows} = await executor(
-    `select id, name from list where id in (${getPlaceholders(
+    `select id, name, ownerID from list where id in (${getPlaceholders(
       listIDs.length,
     )})`,
     listIDs,
   );
-  return rows as List[];
+  return rows.map(r => {
+    const list: List = {
+      id: r.id,
+      name: r.name,
+      ownerID: r.ownerid,
+    };
+    return list;
+  });
 }
 
 export async function createTodo(executor: Executor, todo: Omit<Todo, 'sort'>) {

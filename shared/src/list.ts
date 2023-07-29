@@ -7,6 +7,7 @@ import {entitySchema, generate, Update} from '@rocicorp/rails';
 
 export const listSchema = entitySchema.extend({
   name: z.string(),
+  ownerID: z.string(),
 });
 
 export type List = z.infer<typeof listSchema>;

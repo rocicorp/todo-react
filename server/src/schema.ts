@@ -37,6 +37,7 @@ export async function createSchemaVersion1(executor: Executor) {
 
   await executor(`create table list (
     id varchar(36) primary key not null,
+    ownerid varchar(36) not null,
     name text not null,
     rowversion integer not null,
     lastmodified timestamp(6) not null
