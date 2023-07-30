@@ -5,10 +5,12 @@ import {transact} from './pg';
 import {
   getClientGroupForUpdate,
   getLists,
+  getShares,
   getTodos,
   putClientGroup,
   searchClients,
   searchLists,
+  searchShares,
   searchTodos,
 } from './data';
 import {ClientViewData} from './cvr';
@@ -21,6 +23,7 @@ const pullRequest = z.object({
 type ClientViewRecord = {
   list: ClientViewData;
   todo: ClientViewData;
+  share: ClientViewData;
   clientVersion: number;
 };
 
@@ -39,13 +42,14 @@ export async function pull(
   const baseCVR = prevCVR ?? {
     list: new ClientViewData(),
     todo: new ClientViewData(),
+    share: new ClientViewData(),
     clientVersion: 0,
   };
   console.log({prevCVR, baseCVR});
 
-  const {nextCVRVersion, nextCVR, clientChanges, lists, todos} = await transact(
-    async executor => {
-      const [baseClientGroupRecord, clientChanges, listMeta] =
+  const {nextCVRVersion, nextCVR, clientChanges, lists, shares, todos} =
+    await transact(async executor => {
+      const [baseClientGroupRecord, clientChanges, listMeta, shareMeta] =
         await Promise.all([
           getClientGroupForUpdate(executor, clientGroupID),
           searchClients(executor, {
@@ -53,9 +57,10 @@ export async function pull(
             sinceClientVersion: baseCVR.clientVersion,
           }),
           searchLists(executor),
+          searchShares(executor),
         ]);
 
-      console.log({baseClientGroupRecord, clientChanges, listMeta});
+      console.log({baseClientGroupRecord, clientChanges, listMeta, shareMeta});
 
       const todoMeta = await searchTodos(executor, {
         listIDs: listMeta.map(l => l.id),
@@ -66,10 +71,12 @@ export async function pull(
       const nextCVR: ClientViewRecord = {
         list: ClientViewData.fromSearchResult(listMeta),
         todo: ClientViewData.fromSearchResult(todoMeta),
+        share: ClientViewData.fromSearchResult(shareMeta),
         clientVersion: baseClientGroupRecord.clientVersion,
       };
 
       const listPuts = nextCVR.list.getPutsSince(baseCVR.list);
+      const sharePuts = nextCVR.share.getPutsSince(baseCVR.share);
       const todoPuts = nextCVR.todo.getPutsSince(baseCVR.todo);
 
       const nextClientGroupRecord = {
@@ -77,10 +84,11 @@ export async function pull(
         cvrVersion: baseClientGroupRecord.cvrVersion + 1,
       };
 
-      console.log({listPuts, todoPuts, nextClientGroupRecord});
+      console.log({listPuts, sharePuts, todoPuts, nextClientGroupRecord});
 
-      const [lists, todos] = await Promise.all([
+      const [lists, shares, todos] = await Promise.all([
         getLists(executor, listPuts),
+        getShares(executor, sharePuts),
         getTodos(executor, todoPuts),
         putClientGroup(executor, nextClientGroupRecord),
       ]);
@@ -90,17 +98,18 @@ export async function pull(
         nextCVR,
         clientChanges,
         lists,
+        shares,
         todos,
       };
-    },
-  );
+    });
 
-  console.log({nextCVRVersion, nextCVR, clientChanges, lists, todos});
+  console.log({nextCVRVersion, nextCVR, clientChanges, lists, shares, todos});
 
   const listDels = nextCVR.list.getDelsSince(baseCVR.list);
+  const shareDels = nextCVR.share.getDelsSince(baseCVR.share);
   const todoDels = nextCVR.todo.getDelsSince(baseCVR.todo);
 
-  console.log({listDels, todoDels});
+  console.log({listDels, shareDels, todoDels});
 
   const patch: PatchOperation[] = [];
 
@@ -113,6 +122,12 @@ export async function pull(
   }
   for (const list of lists) {
     patch.push({op: 'put', key: `list/${list.id}`, value: list});
+  }
+  for (const id of shareDels) {
+    patch.push({op: 'del', key: `share/${id}`});
+  }
+  for (const share of shares) {
+    patch.push({op: 'put', key: `share/${share.id}`, value: share});
   }
   for (const id of todoDels) {
     patch.push({op: 'del', key: `todo/${id}`});

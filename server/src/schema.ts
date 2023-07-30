@@ -43,6 +43,14 @@ export async function createSchemaVersion1(executor: Executor) {
     lastmodified timestamp(6) not null
     )`);
 
+  await executor(`create table share (
+      id varchar(36) primary key not null,
+      listid varchar(36) not null,
+      userid varchar(36) not null,
+      rowversion integer not null,
+      lastmodified timestamp(6) not null
+      )`);
+
   await executor(`create table item (
     id varchar(36) primary key not null,
     listid varchar(36) not null,

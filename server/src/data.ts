@@ -1,4 +1,4 @@
-import type {List, Todo, TodoUpdate} from 'shared';
+import type {List, Todo, TodoUpdate, Share} from 'shared';
 import type {Executor} from './pg.js';
 
 export type SearchResult = {
@@ -50,6 +50,40 @@ export async function getLists(executor: Executor, listIDs: string[]) {
       ownerID: r.ownerid,
     };
     return list;
+  });
+}
+
+export async function createShare(executor: Executor, share: Share) {
+  await executor(
+    `insert into share (id, listid, userid, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
+    [share.id, share.listID, share.userID],
+  );
+}
+
+export async function deleteShare(executor: Executor, id: string) {
+  await executor(`delete from share where id = $1`, [id]);
+}
+
+export async function searchShares(executor: Executor) {
+  const {rows} = await executor(`select id, rowversion from share`);
+  return rows as SearchResult[];
+}
+
+export async function getShares(executor: Executor, shareIDs: string[]) {
+  if (shareIDs.length === 0) return [];
+  const {rows} = await executor(
+    `select id, listid, userid from share where id in (${getPlaceholders(
+      shareIDs.length,
+    )})`,
+    shareIDs,
+  );
+  return rows.map(r => {
+    const share: Share = {
+      id: r.id,
+      listID: r.listid,
+      userID: r.userid,
+    };
+    return share;
   });
 }
 

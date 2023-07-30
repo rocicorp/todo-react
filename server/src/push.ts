@@ -4,8 +4,10 @@ import {getPokeBackend} from './poke';
 import {
   createList,
   createTodo,
+  createShare,
   deleteList,
   deleteTodo,
+  deleteShare,
   getClientForUpdate,
   getClientGroupForUpdate,
   putClient,
@@ -13,7 +15,7 @@ import {
   updateTodo,
 } from './data';
 import type {ReadonlyJSONValue} from 'replicache';
-import {listSchema, todoSchema} from 'shared';
+import {listSchema, shareSchema, todoSchema} from 'shared';
 import {entitySchema} from '@rocicorp/rails';
 
 const mutationSchema = z.object({
@@ -127,6 +129,10 @@ async function mutate(executor: Executor, mutation: Mutation) {
         executor,
         todoSchema.omit({sort: true}).parse(mutation.args),
       );
+    case 'createShare':
+      return await createShare(executor, shareSchema.parse(mutation.args));
+    case 'deleteShare':
+      return await deleteShare(executor, z.string().parse(mutation.args));
     case 'updateTodo':
       return await updateTodo(
         executor,
