@@ -28,7 +28,7 @@
 import type {WriteTransaction} from 'replicache';
 import {Todo, listTodos, TodoUpdate} from 'shared';
 import {createList, deleteList} from 'shared';
-import {createAccess, deleteAccess} from 'shared';
+import {createShare, deleteShare} from 'shared';
 
 export type M = typeof mutators;
 
@@ -36,8 +36,8 @@ export const mutators = {
   createList,
   deleteList,
 
-  createAccess,
-  deleteAccess,
+  createShare,
+  deleteShare,
 
   updateTodo: async (tx: WriteTransaction, update: TodoUpdate) => {
     // In a real app you may want to validate the incoming data is in fact a

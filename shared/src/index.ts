@@ -1,3 +1,3 @@
 export * from './todo';
 export * from './list';
-export * from './access';
+export * from './share';

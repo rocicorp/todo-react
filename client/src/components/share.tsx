@@ -1,7 +1,7 @@
 import {useSubscribe} from 'replicache-react';
 import {M} from '../mutators';
 import {Replicache} from 'replicache';
-import {listAccesses} from 'shared';
+import {listShares} from 'shared';
 import {FormEvent} from 'react';
 import {Dialog} from '@headlessui/react';
 import {nanoid} from 'nanoid';
@@ -10,15 +10,15 @@ export function Share({rep, listID}: {rep: Replicache<M>; listID: string}) {
   const guests = useSubscribe(
     rep,
     async tx => {
-      const allGuests = await listAccesses(tx);
-      return allGuests.filter(a => a.listID === listID);
+      const allShares = await listShares(tx);
+      return allShares.filter(a => a.listID === listID);
     },
     [],
     [rep],
   );
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    void rep.mutate.createAccess({
+    void rep.mutate.createShare({
       id: nanoid(),
       listID,
       userID: (e.target as HTMLFormElement).userID.value,
@@ -27,7 +27,7 @@ export function Share({rep, listID}: {rep: Replicache<M>; listID: string}) {
   };
 
   const handleDelete = async (id: string) => {
-    await rep.mutate.deleteAccess(id);
+    await rep.mutate.deleteShare(id);
   };
 
   return (
