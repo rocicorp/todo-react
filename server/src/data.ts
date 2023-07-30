@@ -171,10 +171,18 @@ export async function searchClients(
   }: {clientGroupID: string; sinceClientVersion: number},
 ) {
   const {rows} = await executor(
-    `select id, lastmutationid from replicache_client where clientGroupID = $1 and clientversion > $2`,
+    `select id, lastmutationid, clientversion from replicache_client where clientGroupID = $1 and clientversion > $2`,
     [clientGroupID, sinceClientVersion],
   );
-  return rows as ClientRecord[];
+  return rows.map(r => {
+    const client: ClientRecord = {
+      id: r.id,
+      clientGroupID,
+      lastMutationID: r.lastmutationid,
+      clientVersion: r.clientversion,
+    };
+    return client;
+  });
 }
 
 export async function getClientForUpdate(executor: Executor, clientID: string) {

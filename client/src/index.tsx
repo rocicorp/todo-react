@@ -5,6 +5,7 @@ import App from './app';
 import {mutators} from './mutators';
 import {Replicache} from 'replicache';
 import {useDebouncedCallback} from 'use-debounce';
+import {nanoid} from 'nanoid';
 
 async function init() {
   // See https://doc.replicache.dev/licensing for how to get a license key.
@@ -35,7 +36,12 @@ async function init() {
   function Root() {
     const [userID, setUserID] = useState('');
     const storageListener = useCallback(() => {
-      setUserID(localStorage.getItem('userID') ?? '');
+      let userID = localStorage.getItem('userID');
+      if (!userID) {
+        userID = nanoid(6);
+        localStorage.setItem('userID', userID);
+      }
+      setUserID(userID);
     }, []);
     useEffect(() => {
       storageListener();

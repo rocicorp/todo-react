@@ -8,6 +8,8 @@ import Header from './components/header';
 import MainSection from './components/main-section';
 import {getList, listLists} from 'shared/src/list';
 import Navigo from 'navigo';
+import {Share} from './components/share';
+import {Dialog} from '@headlessui/react';
 
 // This is the top-level component for our app.
 const App = ({
@@ -21,6 +23,7 @@ const App = ({
 }) => {
   const router = new Navigo('/');
   const [listID, setListID] = useState('');
+  const [showingShare, setShowingShare] = useState(false);
 
   router.on('/list/:listID', match => {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -127,6 +130,7 @@ const App = ({
           onNewList={handleNewList}
           onDeleteList={handleDeleteList}
           onUserIDChange={onUserIDChange}
+          onShare={() => setShowingShare(!showingShare)}
         />
         {selectedList ? (
           <MainSection
@@ -139,6 +143,10 @@ const App = ({
           <div id="no-list-selected">No list selected</div>
         )}
       </div>
+      <div className="spacer" />
+      <Dialog open={showingShare} onClose={() => setShowingShare(false)}>
+        <Share rep={rep} listID={listID} />
+      </Dialog>
     </div>
   );
 };

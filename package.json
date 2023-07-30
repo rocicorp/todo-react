@@ -2,6 +2,7 @@
   "name": "todo-row-versioning",
   "version": "0.1.0",
   "devDependencies": {
+    "@headlessui/react": "^1.7.16",
     "@rocicorp/eslint-config": "^0.1.2",
     "@rocicorp/prettier-config": "^0.1.1",
     "typescript": "4.7.4"
@@ -28,7 +29,7 @@
     "shared"
   ],
   "dependencies": {
-    "replicache": "^13.0.0-beta.2",
-    "@rocicorp/rails": "0.5.0-beta.0"
+    "@rocicorp/rails": "0.5.0-beta.0",
+    "replicache": "^13.0.0-beta.2"
   }
 }

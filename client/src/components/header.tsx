@@ -7,6 +7,7 @@ const Header = ({
   onNewList,
   onDeleteList,
   onUserIDChange,
+  onShare,
 }: {
   listName: string | undefined;
   userID: string;
@@ -14,6 +15,7 @@ const Header = ({
   onNewList: (text: string) => void;
   onDeleteList: () => void;
   onUserIDChange: (userID: string) => void;
+  onShare: () => void;
 }) => {
   const handleNewList = () => {
     const name = prompt('Enter a new list name');
@@ -53,6 +55,12 @@ const Header = ({
             value="Delete List"
             disabled={!listName}
             onClick={() => handleDeleteList()}
+          />
+          <input
+            type="button"
+            value="Share"
+            disabled={!listName}
+            onClick={() => onShare()}
           />
         </div>
       </div>
