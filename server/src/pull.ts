@@ -31,6 +31,7 @@ type ClientViewRecord = {
 const cvrCache = new Map<string, ClientViewRecord>();
 
 export async function pull(
+  userID: string,
   requestBody: Express.Request,
 ): Promise<PullResponse> {
   console.log(`Processing pull`, JSON.stringify(requestBody, null, ''));
@@ -56,8 +57,8 @@ export async function pull(
             clientGroupID,
             sinceClientVersion: baseCVR.clientVersion,
           }),
-          searchLists(executor),
-          searchShares(executor),
+          searchLists(executor, {accessibleByUserID: userID}),
+          searchShares(executor, {accessibleByUserID: userID}),
         ]);
 
       console.log({baseClientGroupRecord, clientChanges, listMeta, shareMeta});

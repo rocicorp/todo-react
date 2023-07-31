@@ -20,7 +20,9 @@ x cookie
   x add acl table
   x add share ui to modify acl table
   - change sync to obey acl table
-
+    x only return lists and associated that you are owner of
+    - also return lists that are shared with you
+- validate mutations server-side by userID
 ==== breathe ====
 - fix install conflict
 - share

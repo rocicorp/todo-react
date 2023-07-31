@@ -30,8 +30,14 @@ export async function deleteList(executor: Executor, listID: string) {
   await executor(`delete from list where id = $1`, [listID]);
 }
 
-export async function searchLists(executor: Executor) {
-  const {rows} = await executor(`select id, rowversion from list`);
+export async function searchLists(
+  executor: Executor,
+  {accessibleByUserID}: {accessibleByUserID: string},
+) {
+  const {rows} = await executor(
+    `select id, rowversion from list where ownerid = $1`,
+    [accessibleByUserID],
+  );
   return rows as SearchResult[];
 }
 
@@ -64,8 +70,14 @@ export async function deleteShare(executor: Executor, id: string) {
   await executor(`delete from share where id = $1`, [id]);
 }
 
-export async function searchShares(executor: Executor) {
-  const {rows} = await executor(`select id, rowversion from share`);
+export async function searchShares(
+  executor: Executor,
+  {accessibleByUserID}: {accessibleByUserID: string},
+) {
+  const {rows} = await executor(
+    `select s.id, s.rowversion from share s, list l where s.listid = l.id and l.ownerid = $1`,
+    [accessibleByUserID],
+  );
   return rows as SearchResult[];
 }
 

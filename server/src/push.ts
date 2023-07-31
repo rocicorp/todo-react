@@ -32,7 +32,7 @@ const pushRequestSchema = z.object({
   mutations: z.array(mutationSchema),
 });
 
-export async function push(requestBody: ReadonlyJSONValue) {
+export async function push(_: string, requestBody: ReadonlyJSONValue) {
   console.log('Processing push', JSON.stringify(requestBody, null, ''));
 
   const push = pushRequestSchema.parse(requestBody);
