@@ -3,7 +3,7 @@ x Talk to Greg
 ===================
 x How come data isn’t disappearing with empty patch
 x investigate squelize
-- Specific poke channels
+- Specific poke channels (one per list, one per user)
 x Implement mutators for lists and todos
 x Implement reset pull
 ==== breathe ====
@@ -19,9 +19,9 @@ x cookie
   x plumb userID through to mutators and populate when create list
   x add acl table
   x add share ui to modify acl table
-  - change sync to obey acl table
+  x change sync to obey acl table
     x only return lists and associated that you are owner of
-    - also return lists that are shared with you
+    x also return lists that are shared with you
 - validate mutations server-side by userID
 ==== breathe ====
 - fix install conflict

@@ -50,7 +50,7 @@ export async function pull(
 
   const {nextCVRVersion, nextCVR, clientChanges, lists, shares, todos} =
     await transact(async executor => {
-      const [baseClientGroupRecord, clientChanges, listMeta, shareMeta] =
+      const [baseClientGroupRecord, clientChanges, listMeta] =
         await Promise.all([
           getClientGroupForUpdate(executor, clientGroupID),
           searchClients(executor, {
@@ -58,16 +58,18 @@ export async function pull(
             sinceClientVersion: baseCVR.clientVersion,
           }),
           searchLists(executor, {accessibleByUserID: userID}),
-          searchShares(executor, {accessibleByUserID: userID}),
         ]);
 
-      console.log({baseClientGroupRecord, clientChanges, listMeta, shareMeta});
+      console.log({baseClientGroupRecord, clientChanges, listMeta});
 
-      const todoMeta = await searchTodos(executor, {
-        listIDs: listMeta.map(l => l.id),
-      });
+      // TODO: Should be able to do this join in the database and eliminate a round-trip.
+      const listIDs = listMeta.map(l => l.id);
+      const [todoMeta, shareMeta] = await Promise.all([
+        searchTodos(executor, {listIDs}),
+        searchShares(executor, {listIDs}),
+      ]);
 
-      console.log({todoMeta});
+      console.log({todoMeta, shareMeta});
 
       const nextCVR: ClientViewRecord = {
         list: ClientViewData.fromSearchResult(listMeta),

@@ -35,7 +35,8 @@ export async function searchLists(
   {accessibleByUserID}: {accessibleByUserID: string},
 ) {
   const {rows} = await executor(
-    `select id, rowversion from list where ownerid = $1`,
+    `select id, rowversion from list where ownerid = $1 or ` +
+      `id in (select listid from share where userid = $1)`,
     [accessibleByUserID],
   );
   return rows as SearchResult[];
@@ -72,11 +73,14 @@ export async function deleteShare(executor: Executor, id: string) {
 
 export async function searchShares(
   executor: Executor,
-  {accessibleByUserID}: {accessibleByUserID: string},
+  {listIDs}: {listIDs: string[]},
 ) {
+  if (listIDs.length === 0) return [];
   const {rows} = await executor(
-    `select s.id, s.rowversion from share s, list l where s.listid = l.id and l.ownerid = $1`,
-    [accessibleByUserID],
+    `select s.id, s.rowversion from share s, list l where s.listid = l.id and l.id in (${getPlaceholders(
+      listIDs.length,
+    )})`,
+    listIDs,
   );
   return rows as SearchResult[];
 }
