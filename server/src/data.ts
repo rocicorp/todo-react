@@ -19,11 +19,16 @@ export type ClientRecord = {
   clientVersion: number;
 };
 
+export type Affected = {
+  listIDs: string[];
+  userIDs: string[];
+};
+
 export async function createList(
   executor: Executor,
   userID: string,
   list: List,
-) {
+): Promise<Affected> {
   if (userID !== list.ownerID) {
     throw new Error('Authorization error, cannot create list for other user');
   }
@@ -31,15 +36,21 @@ export async function createList(
     `insert into list (id, ownerid, name, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
     [list.id, list.ownerID, list.name],
   );
+  return {listIDs: [], userIDs: [list.ownerID]};
 }
 
 export async function deleteList(
   executor: Executor,
   userID: string,
   listID: string,
-) {
+): Promise<Affected> {
   await requireAccessToList(executor, listID, userID);
+  const userIDs = await getAccessors(executor, listID);
   await executor(`delete from list where id = $1`, [listID]);
+  return {
+    listIDs: [],
+    userIDs,
+  };
 }
 
 export async function searchLists(
@@ -76,27 +87,34 @@ export async function createShare(
   executor: Executor,
   userID: string,
   share: Share,
-) {
+): Promise<Affected> {
   await requireAccessToList(executor, share.listID, userID);
   await executor(
     `insert into share (id, listid, userid, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
     [share.id, share.listID, share.userID],
   );
+  return {
+    listIDs: [share.listID],
+    userIDs: [share.userID],
+  };
 }
 
 export async function deleteShare(
   executor: Executor,
   userID: string,
   id: string,
-) {
+): Promise<Affected> {
   const [share] = await getShares(executor, [id]);
   if (!share) {
     throw new Error("Specified share doesn't exist");
-    return;
   }
 
   await requireAccessToList(executor, share.listID, userID);
   await executor(`delete from share where id = $1`, [id]);
+  return {
+    listIDs: [share.listID],
+    userIDs: [share.userID],
+  };
 }
 
 export async function searchShares(
@@ -135,7 +153,7 @@ export async function createTodo(
   executor: Executor,
   userID: string,
   todo: Omit<Todo, 'sort'>,
-) {
+): Promise<Affected> {
   await requireAccessToList(executor, todo.listID, userID);
   const {rows} = await executor(
     `select max(ord) as maxord from item where listid = $1`,
@@ -146,27 +164,41 @@ export async function createTodo(
     `insert into item (id, listid, title, complete, ord, rowversion, lastmodified) values ($1, $2, $3, $4, $5, 1, now())`,
     [todo.id, todo.listID, todo.text, todo.completed, maxOrd + 1],
   );
+  return {
+    listIDs: [todo.listID],
+    userIDs: [],
+  };
 }
 
 export async function updateTodo(
   executor: Executor,
   userID: string,
   update: TodoUpdate,
-) {
-  await requireAccessToTodo(executor, update.id, userID);
+): Promise<Affected> {
+  const todo = await mustGetTodo(executor, update.id);
+  await requireAccessToList(executor, todo.listID, userID);
   await executor(
     `update item set title = coalesce($1, title), complete = coalesce($2, complete), ord = coalesce($3, ord), rowversion = rowversion + 1, lastmodified = now() where id = $4`,
     [update.text, update.completed, update.sort, update.id],
   );
+  return {
+    listIDs: [todo.listID],
+    userIDs: [],
+  };
 }
 
 export async function deleteTodo(
   executor: Executor,
   userID: string,
   todoID: string,
-) {
-  await requireAccessToTodo(executor, todoID, userID);
+): Promise<Affected> {
+  const todo = await mustGetTodo(executor, todoID);
+  await requireAccessToList(executor, todo.listID, userID);
   await executor(`delete from item where id = $1`, [todoID]);
+  return {
+    listIDs: [todo.listID],
+    userIDs: [],
+  };
 }
 
 export async function searchTodos(
@@ -181,6 +213,14 @@ export async function searchTodos(
     listIDs,
   );
   return rows as SearchResult[];
+}
+
+export async function mustGetTodo(executor: Executor, id: string) {
+  const [todo] = await getTodos(executor, [id]);
+  if (!todo) {
+    throw new Error('Specified todo does not exist');
+  }
+  return todo;
 }
 
 export async function getTodos(executor: Executor, todoIDs: string[]) {
@@ -327,16 +367,13 @@ export async function putClient(executor: Executor, client: ClientRecord) {
   );
 }
 
-async function requireAccessToTodo(
-  executor: Executor,
-  todoID: string,
-  userID: string,
-) {
-  const [todo] = await getTodos(executor, [todoID]);
-  if (!todo) {
-    throw new Error('Specified todo does not exist');
-  }
-  await requireAccessToList(executor, todo.listID, userID);
+export async function getAccessors(executor: Executor, listID: string) {
+  const {rows} = await executor(
+    `select ownerid as userid from list where id = $1 union ` +
+      `select userid from share where listid = $1`,
+    [listID],
+  );
+  return rows.map(r => r.userid) as string[];
 }
 
 async function requireAccessToList(

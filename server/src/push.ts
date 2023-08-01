@@ -13,6 +13,7 @@ import {
   putClient,
   putClientGroup,
   updateTodo,
+  Affected,
 } from './data';
 import type {ReadonlyJSONValue} from 'replicache';
 import {listSchema, shareSchema, todoSchema} from 'shared';
@@ -39,20 +40,39 @@ export async function push(userID: string, requestBody: ReadonlyJSONValue) {
 
   const t0 = Date.now();
 
+  const affected = {
+    listIDs: new Set<string>(),
+    userIDs: new Set<string>(),
+  };
+
   for (const mutation of push.mutations) {
-    const error = await processMutation(
+    const result = await processMutation(
       userID,
       push.clientGroupID,
       mutation,
       null,
     );
-    if (error !== null) {
-      await processMutation(userID, push.clientGroupID, mutation, error);
+    if ('error' in result) {
+      await processMutation(userID, push.clientGroupID, mutation, result.error);
+    } else {
+      for (const listID of result.affected.listIDs) {
+        affected.listIDs.add(listID);
+      }
+      for (const userID of result.affected.userIDs) {
+        affected.userIDs.add(userID);
+      }
     }
   }
 
+  console.log({affected});
+
   const pokeBackend = getPokeBackend();
-  pokeBackend.poke('all');
+  for (const listID of affected.listIDs) {
+    pokeBackend.poke(`list/${listID}`);
+  }
+  for (const userID of affected.userIDs) {
+    pokeBackend.poke(`user/${userID}`);
+  }
 
   console.log('Processed all mutations in', Date.now() - t0);
 }
@@ -62,8 +82,10 @@ async function processMutation(
   clientGroupID: string,
   mutation: Mutation,
   error: string | null,
-) {
+): Promise<{affected: Affected} | {error: string}> {
   return await transact(async executor => {
+    let affected: Affected = {listIDs: [], userIDs: []};
+
     console.log(
       error === null ? 'Processing mutation' : 'Processing mutation error',
       JSON.stringify(mutation, null, ''),
@@ -83,7 +105,7 @@ async function processMutation(
       console.log(
         `Mutation ${mutation.id} has already been processed - skipping`,
       );
-      return null;
+      return {affected};
     }
     if (mutation.id > nextMutationID) {
       throw new Error(`Mutation ${mutation.id} is from the future - aborting`);
@@ -93,12 +115,12 @@ async function processMutation(
 
     if (error === null) {
       try {
-        await mutate(executor, userID, mutation);
+        affected = await mutate(executor, userID, mutation);
       } catch (e) {
         console.error(
           `Error executing mutation: ${JSON.stringify(mutation)}: ${e}`,
         );
-        return String(e);
+        return {error: String(e)};
       }
     }
 
@@ -119,12 +141,17 @@ async function processMutation(
       putClientGroup(executor, nextClientGroup),
       putClient(executor, nextClient),
     ]);
+
     console.log('Processed mutation in', Date.now() - t1);
-    return null;
+    return {affected};
   });
 }
 
-async function mutate(executor: Executor, userID: string, mutation: Mutation) {
+async function mutate(
+  executor: Executor,
+  userID: string,
+  mutation: Mutation,
+): Promise<Affected> {
   switch (mutation.name) {
     case 'createList':
       return await createList(
@@ -168,5 +195,10 @@ async function mutate(executor: Executor, userID: string, mutation: Mutation) {
         userID,
         z.string().parse(mutation.args),
       );
+    default:
+      return {
+        listIDs: [],
+        userIDs: [],
+      };
   }
 }

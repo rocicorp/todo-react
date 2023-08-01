@@ -3,7 +3,7 @@ x Talk to Greg
 ===================
 x How come data isn’t disappearing with empty patch
 x investigate squelize
-- Specific poke channels (one per list, one per user)
+x Specific poke channels (one per list, one per user)
 x Implement mutators for lists and todos
 x Implement reset pull
 ==== breathe ====

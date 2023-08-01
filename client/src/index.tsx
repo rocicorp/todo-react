@@ -21,18 +21,6 @@ async function init() {
     logLevel: 'debug',
   });
 
-  // Implements a Replicache poke using Server-Sent Events.
-  // If a "poke" message is received, it will pull from the server.
-  // TODO: listen to only the nav and list we're looking at (or maybe extent).
-  const ev = new EventSource(`/api/replicache/poke?channel=all`, {
-    withCredentials: true,
-  });
-  ev.onmessage = async event => {
-    if (event.data === 'poke') {
-      await r.pull();
-    }
-  };
-
   function Root() {
     const [userID, setUserID] = useState('');
     const storageListener = useCallback(() => {

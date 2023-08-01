@@ -37,6 +37,20 @@ const App = ({
     router.resolve();
   }, []);
 
+  useEffect(() => {
+    // Listen for pokes related to just this list.
+    const ev = new EventSource(`/api/replicache/poke?channel=list/${listID}`);
+    ev.onmessage = async () => rep.pull();
+    return () => ev.close();
+  }, [listID]);
+
+  useEffect(() => {
+    // Listen for pokes related to the docs this user has access to.
+    const ev = new EventSource(`/api/replicache/poke?channel=user/${userID}`);
+    ev.onmessage = async () => rep.pull();
+    return () => ev.close();
+  }, [userID]);
+
   const lists = useSubscribe(rep, listLists, [], [rep]);
   lists.sort((a, b) => a.name.localeCompare(b.name));
 
