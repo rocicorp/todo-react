@@ -24,7 +24,7 @@ x cookie
     x also return lists that are shared with you
   x validate mutations server-side by userID
 ==== breathe ====
-- fix install conflict
+x fix install conflict
 - share
 ==== breathe ====
 - Finish docs
