@@ -19,14 +19,26 @@ export type ClientRecord = {
   clientVersion: number;
 };
 
-export async function createList(executor: Executor, list: List) {
+export async function createList(
+  executor: Executor,
+  userID: string,
+  list: List,
+) {
+  if (userID !== list.ownerID) {
+    throw new Error('Authorization error, cannot create list for other user');
+  }
   await executor(
     `insert into list (id, ownerid, name, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
     [list.id, list.ownerID, list.name],
   );
 }
 
-export async function deleteList(executor: Executor, listID: string) {
+export async function deleteList(
+  executor: Executor,
+  userID: string,
+  listID: string,
+) {
+  await requireAccessToList(executor, listID, userID);
   await executor(`delete from list where id = $1`, [listID]);
 }
 
@@ -60,14 +72,30 @@ export async function getLists(executor: Executor, listIDs: string[]) {
   });
 }
 
-export async function createShare(executor: Executor, share: Share) {
+export async function createShare(
+  executor: Executor,
+  userID: string,
+  share: Share,
+) {
+  await requireAccessToList(executor, share.listID, userID);
   await executor(
     `insert into share (id, listid, userid, rowversion, lastmodified) values ($1, $2, $3, 1, now())`,
     [share.id, share.listID, share.userID],
   );
 }
 
-export async function deleteShare(executor: Executor, id: string) {
+export async function deleteShare(
+  executor: Executor,
+  userID: string,
+  id: string,
+) {
+  const [share] = await getShares(executor, [id]);
+  if (!share) {
+    throw new Error("Specified share doesn't exist");
+    return;
+  }
+
+  await requireAccessToList(executor, share.listID, userID);
   await executor(`delete from share where id = $1`, [id]);
 }
 
@@ -103,7 +131,12 @@ export async function getShares(executor: Executor, shareIDs: string[]) {
   });
 }
 
-export async function createTodo(executor: Executor, todo: Omit<Todo, 'sort'>) {
+export async function createTodo(
+  executor: Executor,
+  userID: string,
+  todo: Omit<Todo, 'sort'>,
+) {
+  await requireAccessToList(executor, todo.listID, userID);
   const {rows} = await executor(
     `select max(ord) as maxord from item where listid = $1`,
     [todo.listID],
@@ -115,14 +148,24 @@ export async function createTodo(executor: Executor, todo: Omit<Todo, 'sort'>) {
   );
 }
 
-export async function updateTodo(executor: Executor, todo: TodoUpdate) {
+export async function updateTodo(
+  executor: Executor,
+  userID: string,
+  update: TodoUpdate,
+) {
+  await requireAccessToTodo(executor, update.id, userID);
   await executor(
     `update item set title = coalesce($1, title), complete = coalesce($2, complete), ord = coalesce($3, ord), rowversion = rowversion + 1, lastmodified = now() where id = $4`,
-    [todo.text, todo.completed, todo.sort, todo.id],
+    [update.text, update.completed, update.sort, update.id],
   );
 }
 
-export async function deleteTodo(executor: Executor, todoID: string) {
+export async function deleteTodo(
+  executor: Executor,
+  userID: string,
+  todoID: string,
+) {
+  await requireAccessToTodo(executor, todoID, userID);
   await executor(`delete from item where id = $1`, [todoID]);
 }
 
@@ -282,6 +325,32 @@ export async function putClient(executor: Executor, client: ClientRecord) {
       `,
     [id, clientGroupID, lastMutationID, clientVersion],
   );
+}
+
+async function requireAccessToTodo(
+  executor: Executor,
+  todoID: string,
+  userID: string,
+) {
+  const [todo] = await getTodos(executor, [todoID]);
+  if (!todo) {
+    throw new Error('Specified todo does not exist');
+  }
+  await requireAccessToList(executor, todo.listID, userID);
+}
+
+async function requireAccessToList(
+  executor: Executor,
+  listID: string,
+  accessingUserID: string,
+) {
+  const {rows} = await executor(
+    `select 1 from list where id = $1 and (ownerid = $2 or id in (select listid from share where userid = $2))`,
+    [listID, accessingUserID],
+  );
+  if (rows.length === 0) {
+    throw new Error("Authorization error, can't access list");
+  }
 }
 
 function getPlaceholders(count: number) {

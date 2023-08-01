@@ -22,7 +22,7 @@ x cookie
   x change sync to obey acl table
     x only return lists and associated that you are owner of
     x also return lists that are shared with you
-- validate mutations server-side by userID
+  x validate mutations server-side by userID
 ==== breathe ====
 - fix install conflict
 - share

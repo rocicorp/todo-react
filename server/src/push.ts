@@ -32,7 +32,7 @@ const pushRequestSchema = z.object({
   mutations: z.array(mutationSchema),
 });
 
-export async function push(_: string, requestBody: ReadonlyJSONValue) {
+export async function push(userID: string, requestBody: ReadonlyJSONValue) {
   console.log('Processing push', JSON.stringify(requestBody, null, ''));
 
   const push = pushRequestSchema.parse(requestBody);
@@ -40,9 +40,14 @@ export async function push(_: string, requestBody: ReadonlyJSONValue) {
   const t0 = Date.now();
 
   for (const mutation of push.mutations) {
-    const error = await processMutation(push.clientGroupID, mutation, null);
+    const error = await processMutation(
+      userID,
+      push.clientGroupID,
+      mutation,
+      null,
+    );
     if (error !== null) {
-      await processMutation(push.clientGroupID, mutation, error);
+      await processMutation(userID, push.clientGroupID, mutation, error);
     }
   }
 
@@ -53,6 +58,7 @@ export async function push(_: string, requestBody: ReadonlyJSONValue) {
 }
 
 async function processMutation(
+  userID: string,
   clientGroupID: string,
   mutation: Mutation,
   error: string | null,
@@ -87,7 +93,7 @@ async function processMutation(
 
     if (error === null) {
       try {
-        await mutate(executor, mutation);
+        await mutate(executor, userID, mutation);
       } catch (e) {
         console.error(
           `Error executing mutation: ${JSON.stringify(mutation)}: ${e}`,
@@ -118,27 +124,49 @@ async function processMutation(
   });
 }
 
-async function mutate(executor: Executor, mutation: Mutation) {
+async function mutate(executor: Executor, userID: string, mutation: Mutation) {
   switch (mutation.name) {
     case 'createList':
-      return await createList(executor, listSchema.parse(mutation.args));
+      return await createList(
+        executor,
+        userID,
+        listSchema.parse(mutation.args),
+      );
     case 'deleteList':
-      return await deleteList(executor, z.string().parse(mutation.args));
+      return await deleteList(
+        executor,
+        userID,
+        z.string().parse(mutation.args),
+      );
     case 'createTodo':
       return await createTodo(
         executor,
+        userID,
         todoSchema.omit({sort: true}).parse(mutation.args),
       );
     case 'createShare':
-      return await createShare(executor, shareSchema.parse(mutation.args));
+      return await createShare(
+        executor,
+        userID,
+        shareSchema.parse(mutation.args),
+      );
     case 'deleteShare':
-      return await deleteShare(executor, z.string().parse(mutation.args));
+      return await deleteShare(
+        executor,
+        userID,
+        z.string().parse(mutation.args),
+      );
     case 'updateTodo':
       return await updateTodo(
         executor,
+        userID,
         todoSchema.partial().merge(entitySchema).parse(mutation.args),
       );
     case 'deleteTodo':
-      return await deleteTodo(executor, z.string().parse(mutation.args));
+      return await deleteTodo(
+        executor,
+        userID,
+        z.string().parse(mutation.args),
+      );
   }
 }
